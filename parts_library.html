@@ -1,0 +1,2031 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vishvakarma Foundry — Parts Volume Calculator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/three@0.153.0/build/three.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+:root {
+  --bg-void: #02030a;
+  --bg-deep: #060812;
+  --bg-panel: #0b0f1e;
+  --bg-card: #0f1425;
+  --bg-hover: #141830;
+  --gold-bright: #FFD700;
+  --gold-mid: #E8A800;
+  --gold-dim: #9B6F00;
+  --gold-glow: rgba(255,215,0,0.15);
+  --gold-glow-strong: rgba(255,215,0,0.35);
+  --ember: #FF4500;
+  --ember-mid: #FF6B00;
+  --ember-dim: rgba(255,69,0,0.3);
+  --cyan: #00D4FF;
+  --cyan-dim: rgba(0,212,255,0.2);
+  --green-forge: #39FF14;
+  --text-primary: #F0EDD8;
+  --text-secondary: #9B98AA;
+  --text-muted: #504E6A;
+  --border: rgba(255,215,0,0.12);
+  --border-bright: rgba(255,215,0,0.35);
+  --panel-shadow: 0 8px 40px rgba(0,0,0,0.6), 0 0 0 1px var(--border);
+  --font-display: 'Cinzel Decorative', serif;
+  --font-body: 'Rajdhani', sans-serif;
+  --font-mono: 'Share Tech Mono', monospace;
+  --radius: 10px;
+  --transition: all 0.25s cubic-bezier(0.4,0,0.2,1);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--font-body);background:var(--bg-void);color:var(--text-primary);min-height:100vh;overflow-x:hidden;font-size:15px;line-height:1.6;}
+
+/* INTRO */
+#introOverlay{position:fixed;inset:0;z-index:9999;background:var(--bg-void);display:flex;align-items:center;justify-content:center;overflow:hidden;}
+#introCanvas{position:absolute;inset:0;width:100%;height:100%;}
+#introContent{position:relative;z-index:2;text-align:center;display:flex;flex-direction:column;align-items:center;gap:16px;}
+#hammerIcon{width:100px;height:100px;animation:hammerSpin 3s ease-out forwards,hammerFloat 4s 3s ease-in-out infinite;filter:drop-shadow(0 0 20px #FFD700) drop-shadow(0 0 40px #FF4500);}
+@keyframes hammerSpin{0%{transform:rotate(-180deg) scale(0);opacity:0;}60%{transform:rotate(20deg) scale(1.1);opacity:1;}100%{transform:rotate(0deg) scale(1);opacity:1;}}
+@keyframes hammerFloat{0%,100%{transform:translateY(0);}50%{transform:translateY(-10px);}}
+#introSanskrit{font-size:clamp(28px,5vw,52px);color:var(--gold-bright);text-shadow:0 0 20px var(--gold-bright);opacity:0;animation:fadeUp 1s 0.8s ease-out forwards;letter-spacing:6px;}
+#introMain{font-family:var(--font-display);font-size:clamp(24px,6vw,64px);font-weight:900;color:var(--gold-bright);text-shadow:0 0 30px var(--gold-bright),0 0 80px var(--gold-mid),0 0 120px var(--ember);opacity:0;animation:fadeUp 1s 1.2s ease-out forwards;letter-spacing:8px;}
+#introSub{font-family:var(--font-mono);font-size:clamp(11px,1.5vw,16px);color:var(--cyan);letter-spacing:4px;opacity:0;animation:fadeUp 1s 1.6s ease-out forwards;}
+#introTagline{font-size:13px;color:var(--text-secondary);letter-spacing:2px;opacity:0;animation:fadeUp 1s 2s ease-out forwards;}
+#introTeam{font-family:var(--font-mono);font-size:11px;letter-spacing:5px;color:var(--ember);text-shadow:0 0 10px var(--ember);opacity:0;animation:fadeUp 1s 2.3s ease-out forwards;margin-top:8px;}
+#introProgress{width:300px;height:2px;background:rgba(255,215,0,0.1);border-radius:2px;overflow:hidden;margin-top:20px;opacity:0;animation:fadeUp 0.5s 2.5s ease-out forwards;}
+#introProgressBar{height:100%;width:0%;background:linear-gradient(90deg,var(--ember),var(--gold-bright),var(--cyan));border-radius:2px;animation:progressFill 2.5s 2.5s ease-in-out forwards;box-shadow:0 0 10px var(--gold-bright);}
+@keyframes progressFill{to{width:100%;}}
+#introSkip{font-family:var(--font-mono);font-size:11px;letter-spacing:3px;color:var(--text-muted);cursor:pointer;margin-top:10px;transition:var(--transition);opacity:0;animation:fadeUp 0.5s 3s ease-out forwards;}
+#introSkip:hover{color:var(--gold-bright);}
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
+.spark{position:absolute;width:3px;height:3px;border-radius:50%;animation:sparkFly var(--dur,2s) var(--delay,0s) ease-out forwards;opacity:0;}
+@keyframes sparkFly{0%{opacity:1;transform:translate(0,0) scale(1);}100%{opacity:0;transform:translate(var(--tx,50px),var(--ty,-80px)) scale(0);}}
+
+/* APP LAYOUT */
+#app{min-height:100vh;}
+#bgCanvas{position:fixed;inset:0;z-index:0;pointer-events:none;}
+#appHeader{position:sticky;top:0;z-index:100;background:rgba(2,3,10,0.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0 32px;height:64px;display:flex;align-items:center;justify-content:space-between;gap:24px;}
+.header-left{display:flex;align-items:center;gap:14px;}
+.logo-text{display:flex;flex-direction:column;}
+.logo-main{font-family:var(--font-display);font-size:14px;color:var(--gold-bright);letter-spacing:3px;}
+.logo-sub{font-family:var(--font-mono);font-size:10px;color:var(--text-muted);letter-spacing:2px;}
+.header-nav{display:flex;gap:8px;}
+.nav-item{font-family:var(--font-mono);font-size:12px;letter-spacing:2px;padding:8px 18px;border-radius:6px;cursor:pointer;border:1px solid transparent;color:var(--text-secondary);transition:var(--transition);}
+.nav-item:hover,.nav-item.active{color:var(--gold-bright);border-color:var(--border-bright);background:var(--gold-glow);}
+.header-right{display:flex;align-items:center;gap:8px;}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--green-forge);box-shadow:0 0 8px var(--green-forge);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.5;}}
+.status-text{font-family:var(--font-mono);font-size:11px;color:var(--green-forge);letter-spacing:2px;}
+
+/* SECTIONS */
+.app-section{display:none;position:relative;z-index:1;}
+.app-section.active{display:block;}
+.section-inner{max-width:1400px;margin:0 auto;padding:32px 24px;}
+.hero-banner{background:linear-gradient(135deg,rgba(255,215,0,0.05),rgba(255,69,0,0.05));border:1px solid var(--border);border-radius:var(--radius);padding:28px 32px;margin-bottom:28px;display:flex;align-items:center;justify-content:space-between;gap:24px;}
+.hero-title{font-family:var(--font-display);font-size:clamp(16px,2.5vw,26px);color:var(--gold-bright);margin-bottom:8px;}
+.accent-gold{color:var(--ember);}
+.hero-desc{color:var(--text-secondary);font-size:14px;}
+.hero-badges{display:flex;gap:8px;flex-wrap:wrap;}
+.badge{font-family:var(--font-mono);font-size:10px;padding:5px 12px;border-radius:20px;border:1px solid var(--border);color:var(--cyan);letter-spacing:1px;}
+
+/* PARTS GRID */
+.parts-controls{display:flex;flex-direction:column;gap:14px;margin-bottom:24px;}
+.parts-controls input{width:100%;max-width:500px;padding:12px 18px;background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-primary);font-family:var(--font-body);font-size:15px;outline:none;transition:var(--transition);}
+.parts-controls input:focus{border-color:var(--gold-bright);box-shadow:0 0 0 2px var(--gold-glow);}
+.category-filters{display:flex;flex-wrap:wrap;gap:8px;}
+.cat-btn{font-family:var(--font-mono);font-size:11px;padding:6px 14px;border-radius:20px;border:1px solid var(--border);color:var(--text-secondary);cursor:pointer;transition:var(--transition);letter-spacing:1px;}
+.cat-btn:hover,.cat-btn.active{color:var(--gold-bright);border-color:var(--gold-bright);background:var(--gold-glow);}
+.parts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;}
+.part-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;cursor:pointer;transition:var(--transition);position:relative;overflow:hidden;}
+.part-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--part-color,var(--gold-bright));opacity:0.6;}
+.part-card:hover{border-color:var(--part-color,var(--gold-bright));background:var(--bg-hover);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,0.4);}
+.part-icon{font-size:28px;margin-bottom:10px;}
+.part-name{font-weight:600;font-size:15px;color:var(--text-primary);margin-bottom:4px;}
+.part-category{font-family:var(--font-mono);font-size:10px;color:var(--part-color,var(--gold-bright));letter-spacing:2px;margin-bottom:4px;}
+.part-pattern{font-size:12px;color:var(--text-muted);}
+.part-vol-badge{display:inline-block;margin-top:8px;font-family:var(--font-mono);font-size:10px;padding:3px 8px;border-radius:4px;background:rgba(255,215,0,0.08);border:1px solid rgba(255,215,0,0.2);color:var(--gold-bright);}
+.calc-btn-small{margin-top:10px;width:100%;padding:8px;background:linear-gradient(135deg,var(--gold-mid),var(--ember-mid));border:none;border-radius:6px;color:#000;font-family:var(--font-mono);font-size:11px;font-weight:700;letter-spacing:2px;cursor:pointer;transition:var(--transition);}
+.calc-btn-small:hover{opacity:0.85;transform:scale(1.02);}
+
+/* MODAL */
+.modal-overlay{position:fixed;inset:0;z-index:1000;background:rgba(2,3,10,0.92);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;padding:20px;}
+.modal-box{background:var(--bg-panel);border:1px solid var(--border-bright);border-radius:16px;padding:32px;max-width:560px;width:100%;max-height:90vh;overflow-y:auto;position:relative;box-shadow:0 0 60px rgba(255,215,0,0.1);}
+.modal-close{position:absolute;top:16px;right:16px;background:none;border:none;color:var(--text-secondary);font-size:22px;cursor:pointer;line-height:1;transition:var(--transition);}
+.modal-close:hover{color:var(--gold-bright);}
+.modal-title{font-family:var(--font-display);font-size:18px;color:var(--gold-bright);margin-bottom:4px;}
+.modal-subtitle{font-family:var(--font-mono);font-size:11px;color:var(--cyan);letter-spacing:2px;margin-bottom:24px;}
+.modal-section{margin-bottom:20px;}
+.modal-section h4{font-size:13px;color:var(--text-muted);letter-spacing:2px;text-transform:uppercase;margin-bottom:12px;font-family:var(--font-mono);}
+.dim-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.dim-group{display:flex;flex-direction:column;gap:6px;}
+.dim-group label{font-size:12px;color:var(--text-secondary);font-family:var(--font-mono);letter-spacing:1px;}
+.dim-group input{padding:10px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-family:var(--font-mono);font-size:14px;outline:none;transition:var(--transition);}
+.dim-group input:focus{border-color:var(--gold-bright);box-shadow:0 0 0 2px var(--gold-glow);}
+.modal-select{width:100%;padding:10px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-family:var(--font-body);font-size:14px;outline:none;transition:var(--transition);}
+.modal-select:focus{border-color:var(--gold-bright);}
+.btn-calc{width:100%;padding:14px;background:linear-gradient(135deg,var(--gold-bright),var(--ember));border:none;border-radius:10px;color:#000;font-family:var(--font-display);font-size:14px;font-weight:700;letter-spacing:2px;cursor:pointer;transition:var(--transition);margin-top:8px;}
+.btn-calc:hover{opacity:0.9;transform:scale(1.01);box-shadow:0 0 20px var(--gold-glow-strong);}
+.result-panel{background:var(--bg-card);border:1px solid var(--border-bright);border-radius:10px;padding:20px;margin-top:16px;}
+.result-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;}
+.result-item{text-align:center;padding:12px;background:rgba(255,215,0,0.04);border-radius:8px;border:1px solid var(--border);}
+.result-val{font-family:var(--font-mono);font-size:20px;color:var(--gold-bright);font-weight:700;}
+.result-label{font-size:11px;color:var(--text-muted);margin-top:4px;letter-spacing:1px;}
+.result-full{grid-column:1/-1;}
+.formula-box{background:rgba(0,212,255,0.05);border:1px solid rgba(0,212,255,0.2);border-radius:8px;padding:14px;margin-top:12px;font-family:var(--font-mono);font-size:12px;color:var(--cyan);line-height:1.8;}
+.formula-box b{color:var(--gold-bright);}
+.shape-info{font-size:13px;color:var(--text-secondary);margin-bottom:8px;padding:10px 14px;background:rgba(255,69,0,0.05);border-radius:6px;border-left:3px solid var(--ember);}
+
+/* ABOUT */
+.about-section{text-align:center;padding:60px 24px;}
+.vishvakarma-emblem{margin:0 auto 32px;}
+.about-title{font-family:var(--font-display);font-size:clamp(20px,3vw,36px);color:var(--gold-bright);margin-bottom:20px;}
+.about-verse{font-size:15px;color:var(--text-secondary);max-width:680px;margin:0 auto 40px;line-height:1.9;font-style:italic;}
+.about-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;max-width:900px;margin:0 auto 48px;}
+.about-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:28px;text-align:left;}
+.about-card-icon{font-size:32px;margin-bottom:14px;}
+.about-card h3{color:var(--gold-bright);margin-bottom:10px;font-size:16px;}
+.about-card p{color:var(--text-secondary);font-size:14px;line-height:1.7;}
+.team-banner{background:linear-gradient(135deg,rgba(255,215,0,0.08),rgba(255,69,0,0.08));border:1px solid var(--border-bright);border-radius:var(--radius);padding:24px 40px;display:inline-block;}
+.team-title{font-family:var(--font-display);font-size:20px;color:var(--gold-bright);}
+.team-subtitle{font-family:var(--font-mono);font-size:12px;color:var(--text-muted);margin-top:6px;letter-spacing:2px;}
+footer{background:rgba(2,3,10,0.95);border-top:1px solid var(--border);padding:20px 32px;text-align:center;position:relative;z-index:1;}
+.footer-inner{font-family:var(--font-mono);font-size:11px;color:var(--text-muted);letter-spacing:2px;display:flex;gap:12px;justify-content:center;align-items:center;flex-wrap:wrap;}
+.footer-brand{color:var(--gold-dim);}
+.footer-divider{color:var(--text-muted);}
+
+/* scrollbar */
+::-webkit-scrollbar{width:6px;height:6px;}
+::-webkit-scrollbar-track{background:var(--bg-void);}
+::-webkit-scrollbar-thumb{background:var(--gold-dim);border-radius:3px;}
+
+/* ── DROPDOWN SELECTOR ── */
+.parts-dropdown-wrap{position:relative;width:100%;max-width:600px;}
+.parts-dropdown{width:100%;padding:14px 18px;background:var(--bg-panel);border:1px solid var(--border-bright);border-radius:var(--radius);color:var(--text-primary);font-family:var(--font-body);font-size:15px;outline:none;cursor:pointer;transition:var(--transition);appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='%23FFD700'%3E%3Cpath d='M0 0l6 8 6-8z'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:right 16px center;}
+.parts-dropdown:focus{border-color:var(--gold-bright);box-shadow:0 0 0 2px var(--gold-glow);}
+.parts-dropdown option{background:var(--bg-panel);color:var(--text-primary);}
+.parts-dropdown optgroup{color:var(--gold-mid);font-family:var(--font-mono);font-size:12px;letter-spacing:2px;}
+.dropdown-preview-row{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px;margin-bottom:24px;}
+@media(max-width:768px){.dropdown-preview-row{grid-template-columns:1fr;}}
+
+/* ── 3D PREVIEW PANEL ── */
+#preview3DPanel{background:var(--bg-card);border:1px solid var(--border-bright);border-radius:var(--radius);overflow:hidden;position:relative;min-height:240px;display:flex;flex-direction:column;}
+#preview3DPanel .panel-header{padding:12px 16px;background:rgba(255,215,0,0.06);border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+#preview3DPanel .panel-header span{font-family:var(--font-mono);font-size:11px;letter-spacing:2px;color:var(--gold-bright);}
+#preview3DCanvas{width:100%;height:220px;display:block;}
+.preview-part-info{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;display:flex;flex-direction:column;gap:10px;justify-content:center;}
+.preview-part-name{font-family:var(--font-display);font-size:16px;color:var(--gold-bright);}
+.preview-part-cat{font-family:var(--font-mono);font-size:11px;letter-spacing:2px;color:var(--cyan);}
+.preview-part-shape{font-size:13px;color:var(--text-secondary);padding:8px 12px;background:rgba(255,69,0,0.06);border-radius:6px;border-left:3px solid var(--ember);}
+.preview-btn{margin-top:auto;padding:12px;background:linear-gradient(135deg,var(--gold-mid),var(--ember-mid));border:none;border-radius:8px;color:#000;font-family:var(--font-mono);font-size:12px;font-weight:700;letter-spacing:2px;cursor:pointer;transition:var(--transition);}
+.preview-btn:hover{opacity:0.85;transform:scale(1.02);}
+
+/* ── MODAL 3D LIVE PREVIEW ── */
+#modal3DContainer{margin-bottom:16px;border-radius:10px;overflow:hidden;border:1px solid var(--border);background:var(--bg-card);}
+#modal3DHeader{padding:8px 14px;background:rgba(255,215,0,0.05);border-bottom:1px solid var(--border);font-family:var(--font-mono);font-size:10px;letter-spacing:2px;color:var(--gold-bright);display:flex;justify-content:space-between;}
+#modal3DCanvas{width:100%;height:180px;display:block;}
+
+/* SPARKLE for calculated cards */
+.part-card.calculated{border-color:rgba(255,215,0,0.4);}
+.part-card.calculated::after{content:'✓';position:absolute;top:10px;right:10px;color:var(--green-forge);font-size:14px;}
+
+/* no-results */
+.no-results{grid-column:1/-1;text-align:center;padding:60px;color:var(--text-muted);font-family:var(--font-mono);font-size:14px;letter-spacing:2px;}
+
+/* responsive */
+@media(max-width:768px){
+  #appHeader{padding:0 16px;flex-wrap:wrap;height:auto;padding:12px 16px;gap:12px;}
+  .header-nav{gap:4px;}
+  .nav-item{padding:6px 12px;font-size:11px;}
+  .section-inner{padding:20px 14px;}
+  .dim-grid{grid-template-columns:1fr;}
+}
+/* ── AI CHATBOX ── */
+#aiChatToggle{position:fixed;bottom:28px;right:28px;z-index:900;width:62px;height:62px;border-radius:50%;background:linear-gradient(135deg,var(--gold-bright),var(--ember));border:none;cursor:pointer;box-shadow:0 4px 24px rgba(255,215,0,0.35),0 0 0 3px rgba(255,215,0,0.1);display:flex;align-items:center;justify-content:center;transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);font-size:26px;}
+#aiChatToggle:hover{transform:scale(1.12) rotate(8deg);box-shadow:0 6px 32px rgba(255,215,0,0.5);}
+#aiChatToggle .pulse-ring{position:absolute;inset:-6px;border-radius:50%;border:2px solid var(--gold-bright);animation:chatPulse 2s ease-out infinite;opacity:0;}
+@keyframes chatPulse{0%{transform:scale(1);opacity:0.6;}100%{transform:scale(1.5);opacity:0;}}
+#aiChatToggle .notif-dot{position:absolute;top:2px;right:2px;width:14px;height:14px;border-radius:50%;background:var(--green-forge);box-shadow:0 0 8px var(--green-forge);display:none;animation:pulse 1.5s infinite;}
+
+#aiChatPanel{position:fixed;bottom:100px;right:28px;z-index:901;width:420px;max-height:75vh;background:var(--bg-panel);border:1px solid var(--border-bright);border-radius:16px;box-shadow:0 12px 60px rgba(0,0,0,0.7),0 0 0 1px rgba(255,215,0,0.1);display:none;flex-direction:column;overflow:hidden;transform:translateY(20px) scale(0.95);opacity:0;transition:all 0.35s cubic-bezier(0.34,1.56,0.64,1);}
+#aiChatPanel.open{display:flex;transform:translateY(0) scale(1);opacity:1;}
+.chat-header{padding:14px 18px;background:linear-gradient(135deg,rgba(255,215,0,0.08),rgba(255,69,0,0.06));border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.chat-header-left{display:flex;align-items:center;gap:10px;}
+.chat-header-left .ai-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--gold-bright),var(--ember));display:flex;align-items:center;justify-content:center;font-size:18px;animation:avatarGlow 3s ease-in-out infinite alternate;}
+@keyframes avatarGlow{0%{box-shadow:0 0 8px rgba(255,215,0,0.3);}100%{box-shadow:0 0 20px rgba(255,215,0,0.6);}}
+.chat-header-title{font-family:var(--font-display);font-size:13px;color:var(--gold-bright);letter-spacing:2px;}
+.chat-header-status{font-family:var(--font-mono);font-size:10px;color:var(--green-forge);letter-spacing:1px;}
+.chat-close{background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;transition:var(--transition);padding:4px 8px;border-radius:6px;}
+.chat-close:hover{color:var(--gold-bright);background:rgba(255,215,0,0.1);}
+
+.chat-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;min-height:280px;max-height:50vh;scroll-behavior:smooth;}
+.chat-msg{max-width:88%;padding:12px 16px;border-radius:14px;font-size:13px;line-height:1.7;animation:msgSlide 0.3s ease-out;}
+@keyframes msgSlide{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+.chat-msg.ai{align-self:flex-start;background:var(--bg-card);border:1px solid var(--border);color:var(--text-primary);border-bottom-left-radius:4px;}
+.chat-msg.user{align-self:flex-end;background:linear-gradient(135deg,rgba(255,215,0,0.15),rgba(255,69,0,0.1));border:1px solid rgba(255,215,0,0.25);color:var(--text-primary);border-bottom-right-radius:4px;}
+.chat-msg.system{align-self:center;background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.2);color:var(--cyan);font-family:var(--font-mono);font-size:11px;letter-spacing:1px;text-align:center;max-width:95%;border-radius:8px;}
+.chat-msg strong{color:var(--gold-bright);}
+.chat-msg code{background:rgba(255,215,0,0.1);padding:2px 6px;border-radius:4px;font-family:var(--font-mono);font-size:12px;color:var(--ember);}
+
+.chat-typing{align-self:flex-start;padding:12px 18px;display:flex;gap:5px;align-items:center;}
+.chat-typing .dot{width:7px;height:7px;border-radius:50%;background:var(--gold-bright);animation:typeDot 1.4s infinite;}
+.chat-typing .dot:nth-child(2){animation-delay:0.2s;}
+.chat-typing .dot:nth-child(3){animation-delay:0.4s;}
+@keyframes typeDot{0%,60%,100%{transform:translateY(0);opacity:0.3;}30%{transform:translateY(-8px);opacity:1;}}
+
+.chat-input-wrap{padding:12px 14px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center;background:rgba(2,3,10,0.5);}
+.chat-input-wrap input{flex:1;padding:10px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;color:var(--text-primary);font-family:var(--font-body);font-size:13px;outline:none;transition:var(--transition);}
+.chat-input-wrap input:focus{border-color:var(--gold-bright);box-shadow:0 0 0 2px var(--gold-glow);}
+.chat-input-wrap input::placeholder{color:var(--text-muted);}
+.chat-send{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--gold-bright),var(--ember));border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;transition:var(--transition);}
+.chat-send:hover{transform:scale(1.08);box-shadow:0 0 16px rgba(255,215,0,0.4);}
+.chat-send:disabled{opacity:0.4;cursor:not-allowed;transform:none;}
+
+/* ── CHAT ACTION BUTTONS ── */
+.chat-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px 14px;border-top:1px solid var(--border);}
+.chat-action-btn{display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;color:var(--text-primary);font-family:var(--font-mono);font-size:11px;letter-spacing:1px;cursor:pointer;transition:all 0.25s ease;text-align:left;}
+.chat-action-btn:hover:not(:disabled){border-color:var(--gold-bright);background:rgba(255,215,0,0.08);transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,0.3);}
+.chat-action-btn:disabled{opacity:0.35;cursor:not-allowed;}
+.chat-action-btn .action-icon{font-size:16px;flex-shrink:0;}
+.chat-action-btn.ready{border-color:rgba(57,255,20,0.3);animation:btnReady 0.5s ease;}
+@keyframes btnReady{0%{transform:scale(0.95);}50%{transform:scale(1.03);}100%{transform:scale(1);}}
+
+.chat-msg.prompt-preview{background:rgba(255,215,0,0.06);border:1px solid rgba(255,215,0,0.2);font-family:var(--font-mono);font-size:11px;line-height:1.6;color:var(--text-secondary);max-height:120px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;}
+.chat-msg .copied-badge{display:inline-block;padding:3px 10px;background:rgba(57,255,20,0.15);border:1px solid rgba(57,255,20,0.3);border-radius:6px;color:var(--green-forge);font-family:var(--font-mono);font-size:10px;letter-spacing:1px;margin-top:6px;animation:copiedFlash 0.4s ease;}
+
+/* ── GATING DIAGRAM ── */
+.gating-diagram{margin-top:16px;padding:16px;background:var(--bg-card);border:1px solid var(--border-bright);border-radius:12px;overflow:hidden;}
+.gating-diagram-title{font-family:var(--font-mono);font-size:11px;letter-spacing:2px;color:var(--gold-bright);margin-bottom:12px;text-align:center;}
+.gating-svg{width:100%;max-width:380px;margin:0 auto;display:block;}
+
+/* ── QUICK ACTIONS in modal ── */
+.modal-quick-actions{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;}
+.modal-quick-actions button{padding:8px 14px;background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.2);border-radius:8px;color:var(--cyan);font-family:var(--font-mono);font-size:11px;letter-spacing:1px;cursor:pointer;transition:var(--transition);}
+.modal-quick-actions button:hover{background:rgba(0,212,255,0.15);border-color:var(--cyan);transform:translateY(-1px);}
+
+/* ── KEYBOARD SHORTCUTS BADGE ── */
+.kbd{display:inline-block;padding:2px 6px;background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.15);border-radius:4px;font-family:var(--font-mono);font-size:10px;color:var(--text-muted);margin:0 2px;vertical-align:middle;}
+
+@media(max-width:768px){
+  #aiChatPanel{width:calc(100vw - 24px);right:12px;bottom:80px;max-height:70vh;}
+  #aiChatToggle{bottom:16px;right:16px;width:54px;height:54px;}
+}
+</style>
+</head>
+<body>
+
+<!-- INTRO -->
+<div id="introOverlay">
+  <canvas id="introCanvas"></canvas>
+  <div id="introContent">
+    <div id="hammerIcon">
+      <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="hammerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#FFD700"/>
+            <stop offset="50%" style="stop-color:#FF8C00"/>
+            <stop offset="100%" style="stop-color:#FF4500"/>
+          </linearGradient>
+          <filter id="glow"><feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+          <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+        </defs>
+        <g filter="url(#glow)">
+          <circle cx="60" cy="60" r="22" fill="none" stroke="url(#hammerGrad)" stroke-width="3"/>
+          <circle cx="60" cy="60" r="10" fill="url(#hammerGrad)" opacity="0.6"/>
+          <rect x="56" y="30" width="8" height="12" rx="2" fill="url(#hammerGrad)"/>
+          <rect x="56" y="78" width="8" height="12" rx="2" fill="url(#hammerGrad)"/>
+          <rect x="30" y="56" width="12" height="8" rx="2" fill="url(#hammerGrad)"/>
+          <rect x="78" y="56" width="12" height="8" rx="2" fill="url(#hammerGrad)"/>
+        </g>
+        <g filter="url(#glow)">
+          <rect x="52" y="60" width="35" height="14" rx="3" fill="url(#hammerGrad)" transform="rotate(-35 60 67)"/>
+          <rect x="63" y="65" width="6" height="30" rx="2" fill="#c8a040" transform="rotate(-35 66 80)"/>
+        </g>
+      </svg>
+    </div>
+    <div id="introTitle">
+      <div id="introSanskrit">विश्वकर्मा</div>
+      <div id="introMain">VISHVAKARMA</div>
+      <div id="introSub">FOUNDRY INTELLIGENCE SYSTEM</div>
+      <div id="introTagline">Architect of the Gods · Divine Engineer · Creator of Worlds</div>
+    </div>
+    <div id="introTeam">BY TEAM VISHVAKARMA</div>
+    <div id="introProgress"><div id="introProgressBar"></div></div>
+    <div id="introSkip" onclick="skipIntro()">ENTER THE FORGE →</div>
+  </div>
+  <div id="sparks"></div>
+</div>
+
+<!-- MAIN APP -->
+<div id="app" style="display:none;">
+  <canvas id="bgCanvas"></canvas>
+
+  <header id="appHeader">
+    <div class="header-left">
+      <div class="logo-mark">
+        <svg viewBox="0 0 40 40" width="40" height="40">
+          <circle cx="20" cy="20" r="16" fill="none" stroke="#FFD700" stroke-width="1.5"/>
+          <polygon points="20,6 24,16 35,16 26,23 29,34 20,27 11,34 14,23 5,16 16,16" fill="none" stroke="#FFD700" stroke-width="1.2"/>
+          <circle cx="20" cy="20" r="4" fill="#FFD700"/>
+        </svg>
+      </div>
+      <div class="logo-text">
+        <span class="logo-main">VISHVAKARMA</span>
+        <span class="logo-sub">Foundry Intelligence · v3.0</span>
+      </div>
+    </div>
+    <nav class="header-nav">
+      <a href="index.html" class="nav-item" style="text-decoration:none;">⚙ Calculator</a>
+      <span class="nav-item active" data-section="parts">🔩 Parts Library</span>
+      <span class="nav-item" data-section="about">✦ About</span>
+    </nav>
+    <div class="header-right">
+      <div class="status-dot"></div>
+      <span class="status-text">FORGE ACTIVE</span>
+    </div>
+  </header>
+
+  <!-- PARTS LIBRARY SECTION -->
+  <section id="section-parts" class="app-section active">
+    <div class="section-inner">
+      <div class="hero-banner">
+        <div class="hero-text">
+          <h1 class="hero-title">MECHANICAL <span class="accent-gold">PARTS</span> LIBRARY</h1>
+          <p class="hero-desc">Click any part → enter dimensions → calculate exact volume, mass & gating data</p>
+        </div>
+        <div class="hero-badges">
+          <span class="badge">⚙ 500+ Parts</span>
+          <span class="badge">📐 Real Geometry</span>
+          <span class="badge">⚡ Instant Calc</span>
+        </div>
+      </div>
+
+      <div class="parts-controls">
+        <input type="text" id="partsSearch" placeholder="🔍 Search parts (e.g. bevel gear, valve, bearing...)" oninput="filterParts()" />
+        <div class="category-filters" id="categoryFilters"></div>
+
+        <!-- DROPDOWN SELECTOR -->
+        <div style="margin-top:14px;">
+          <label style="font-family:var(--font-mono);font-size:11px;letter-spacing:2px;color:var(--text-secondary);display:block;margin-bottom:8px;">⬇ OR SELECT PART FROM DROPDOWN LIST</label>
+          <div class="parts-dropdown-wrap">
+            <select id="partsDropdown" class="parts-dropdown" onchange="onDropdownSelect(this.value)">
+              <option value="">— Select a Part —</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- DROPDOWN 3D PREVIEW ROW -->
+        <div class="dropdown-preview-row" id="dropdownPreviewRow" style="display:none;">
+          <div id="preview3DPanel">
+            <div class="panel-header">
+              <span>⬡ LIVE 3D GEOMETRY</span>
+              <span id="preview3DLabel" style="color:var(--cyan);">SELECT A PART</span>
+            </div>
+            <canvas id="preview3DCanvas"></canvas>
+          </div>
+          <div class="preview-part-info" id="previewPartInfo">
+            <div class="preview-part-name" id="previewPartName">—</div>
+            <div class="preview-part-cat" id="previewPartCat">—</div>
+            <div class="preview-part-shape" id="previewPartShape">Select a part to see its geometry and dimensions.</div>
+            <button class="preview-btn" onclick="openSelectedPart()">⚡ CALCULATE THIS PART →</button>
+          </div>
+        </div>
+      </div>
+
+      <div id="partsGrid" class="parts-grid"></div>
+    </div>
+  </section>
+
+  <!-- ABOUT SECTION -->
+  <section id="section-about" class="app-section">
+    <div class="section-inner about-section">
+      <div class="vishvakarma-emblem">
+        <svg viewBox="0 0 200 200" width="150" height="150">
+          <defs>
+            <radialGradient id="embGrad" cx="50%" cy="50%">
+              <stop offset="0%" stop-color="#FFD700" stop-opacity="0.8"/>
+              <stop offset="100%" stop-color="#FF4500" stop-opacity="0.2"/>
+            </radialGradient>
+          </defs>
+          <circle cx="100" cy="100" r="90" fill="none" stroke="#FFD700" stroke-width="1" opacity="0.4"/>
+          <circle cx="100" cy="100" r="70" fill="none" stroke="#FFD700" stroke-width="0.5" opacity="0.3"/>
+          <circle cx="100" cy="100" r="50" fill="url(#embGrad)" opacity="0.5"/>
+          <polygon points="100,62 108,85 133,85 113,100 121,123 100,108 79,123 87,100 67,85 92,85" fill="#FFD700" opacity="0.9"/>
+          <circle cx="100" cy="100" r="12" fill="none" stroke="#FFD700" stroke-width="2"/>
+          <circle cx="100" cy="100" r="5" fill="#FFD700"/>
+        </svg>
+      </div>
+      <h1 class="about-title">विश्वकर्मा — VISHVAKARMA</h1>
+      <p class="about-verse">"In the cosmic forge of the divine architect, every atom was shaped with purpose, every molecule cast with intention. Vishvakarma — the builder of heaven, the craftsman of gods — lives in every engineer who creates."</p>
+      <div class="about-cards">
+        <div class="about-card"><div class="about-card-icon">⚙</div><h3>Real-World Volume Engine</h3><p>Every part in the library now has a specific geometric model. Select a Bevel Gear? Enter pitch circle diameter, face width, shaft bore. The system calculates real foundry-grade volumes.</p></div>
+        <div class="about-card"><div class="about-card-icon">🔥</div><h3>The Sacred Forge</h3><p>Foundry work is humanity's oldest form of creation — transforming raw ore through fire and mold into functional art. Every casting is an act of divine creation.</p></div>
+        <div class="about-card"><div class="about-card-icon">📐</div><h3>Industry-Grade Accuracy</h3><p>Volume formulas are based on standard mechanical engineering geometry. Results include gating parameters, pouring time, and estimated casting yield per industrial practice.</p></div>
+      </div>
+      <div class="team-banner">
+        <div class="team-title">TEAM VISHVAKARMA</div>
+        <div class="team-subtitle">Foundry Intelligence · Real-World Parts Engine</div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="footer-inner">
+      <span class="footer-brand">⚙ VISHVAKARMA FOUNDRY AI</span>
+      <span class="footer-divider">·</span>
+      <span>Team Vishvakarma © 2025</span>
+      <span class="footer-divider">·</span>
+      <span>Every Part Has a Real Volume Formula</span>
+    </div>
+  </footer>
+</div>
+
+<!-- AI CHAT TOGGLE -->
+<button id="aiChatToggle" onclick="toggleAIChat()" title="AI Foundry Assistant (Ctrl+K)">
+  <span class="pulse-ring"></span>
+  <span class="notif-dot" id="chatNotif"></span>
+  🤖
+</button>
+
+<!-- AI CHAT PANEL -->
+<div id="aiChatPanel">
+  <div class="chat-header">
+    <div class="chat-header-left">
+      <div class="ai-avatar">🔥</div>
+      <div>
+        <div class="chat-header-title">FOUNDRY AI</div>
+        <div class="chat-header-status" id="aiStatusText">● <span style="color:var(--green-forge);">Online</span> · Built-in Knowledge Engine</div>
+      </div>
+    </div>
+    <button class="chat-close" onclick="toggleAIChat()">✕</button>
+  </div>
+  <div class="chat-messages" id="chatMessages">
+    <div class="chat-msg system">⚡ Vishvakarma AI · Built-in Foundry Knowledge · Ref: Heine, P.L. Jain, P.N. Rao</div>
+    <div class="chat-msg ai">Namaste! 🙏 I'm <strong>Vishvakarma AI</strong> — your foundry engineering assistant.<br><br>
+      <strong>What I do:</strong><br>
+      🔍 <strong>Defect Analysis</strong> — 15 defects with causes &amp; prevention<br>
+      ⚠️ <strong>Precautions</strong> — 15-point checklist per reference books<br>
+      📄 <strong>Full Report</strong> — Complete casting process report<br>
+      📐 <strong>Gating Diagram</strong> — SVG layout instantly<br><br>
+      📋 <strong>Bonus:</strong> Each analysis auto-copies a prompt to clipboard — paste in <a href="https://gemini.google.com/app" target="_blank" style="color:var(--cyan);">Gemini</a> for AI images &amp; deeper analysis!<br><br>
+      <em>Calculate a part first, then use buttons or ask me anything!</em></div>
+  </div>
+  <div class="chat-actions" id="chatQuickBtns">
+    <button class="chat-action-btn" onclick="quickAsk('defects')" id="btnDefects" disabled>
+      <span class="action-icon">🔍</span><span>Defect Analysis</span>
+    </button>
+    <button class="chat-action-btn" onclick="quickAsk('precautions')" id="btnPrecautions" disabled>
+      <span class="action-icon">⚠️</span><span>Precautions</span>
+    </button>
+    <button class="chat-action-btn" onclick="quickAsk('report')" id="btnFullReport" disabled>
+      <span class="action-icon">📄</span><span>Full Report</span>
+    </button>
+    <button class="chat-action-btn" onclick="triggerGatingDiagram()" id="btnDiagram" disabled>
+      <span class="action-icon">📐</span><span>Gating Diagram</span>
+    </button>
+  </div>
+  <div class="chat-actions" style="grid-template-columns:1fr;padding-top:0;">
+    <button class="chat-action-btn" onclick="openGeminiDirect()" id="btnGemini" disabled style="border-color:rgba(0,212,255,0.3);color:var(--cyan);">
+      <span class="action-icon">✨</span><span>Open Gemini for AI Images &amp; Deep Analysis (prompt auto-copied)</span>
+    </button>
+  </div>
+  <div class="chat-input-wrap">
+    <input type="text" id="chatInput" placeholder="Ask anything about casting, defects..." onkeydown="if(event.key==='Enter')sendChatMsg()" />
+    <button class="chat-send" onclick="sendChatMsg()" id="chatSendBtn">→</button>
+  </div>
+</div>
+
+<!-- VOLUME CALCULATOR MODAL -->
+<div id="volModal" class="modal-overlay" style="display:none;" onclick="closeModalOutside(event)">
+  <div class="modal-box" id="modalBox">
+    <button class="modal-close" onclick="closeModal()">✕</button>
+    <div class="modal-title" id="modalTitle">Part Name</div>
+    <div class="modal-subtitle" id="modalSubtitle">CATEGORY · PATTERN</div>
+
+    <div id="modalShapeInfo" class="shape-info"></div>
+
+    <!-- LIVE 3D MODAL PREVIEW -->
+    <div id="modal3DContainer">
+      <div id="modal3DHeader">
+        <span>⬡ REAL-TIME 3D GEOMETRY PREVIEW</span>
+        <span style="color:var(--cyan);" id="modal3DLabel">ADJUSTS AS YOU CHANGE DIMENSIONS</span>
+      </div>
+      <canvas id="modal3DCanvas"></canvas>
+    </div>
+
+    <div class="modal-section">
+      <h4>Material / Alloy</h4>
+      <select id="modalMaterial" class="modal-select">
+        <option value="7.15">Grey Cast Iron (7.15 g/cm³)</option>
+        <option value="7.10">Ductile Iron (7.10 g/cm³)</option>
+        <option value="7.60">White Cast Iron (7.60 g/cm³)</option>
+        <option value="7.30">Malleable Iron (7.30 g/cm³)</option>
+        <option value="7.85">Carbon Steel (7.85 g/cm³)</option>
+        <option value="8.00">Stainless Steel 304 (8.00 g/cm³)</option>
+        <option value="2.68">Aluminum A356 (2.68 g/cm³)</option>
+        <option value="2.70">Aluminum 6061 (2.70 g/cm³)</option>
+        <option value="8.50">Brass C360 (8.50 g/cm³)</option>
+        <option value="8.93">Bronze C932 (8.93 g/cm³)</option>
+        <option value="8.96">Copper (8.96 g/cm³)</option>
+        <option value="4.43">Titanium Ti-6Al-4V (4.43 g/cm³)</option>
+      </select>
+    </div>
+
+    <div class="modal-section">
+      <h4>Dimensions</h4>
+      <div class="dim-grid" id="modalDims"></div>
+    </div>
+
+    <button class="btn-calc" onclick="computePartVolume()">⚡ CALCULATE VOLUME & GATING</button>
+
+    <div id="modalResults" style="display:none;">
+      <div class="formula-box" id="modalFormula"></div>
+      <div class="result-panel">
+        <div class="result-grid">
+          <div class="result-item"><div class="result-val" id="r-vol">—</div><div class="result-label">VOLUME (cm³)</div></div>
+          <div class="result-item"><div class="result-val" id="r-mass">—</div><div class="result-label">MASS (kg)</div></div>
+          <div class="result-item"><div class="result-val" id="r-sprue">—</div><div class="result-label">SPRUE AREA (cm²)</div></div>
+          <div class="result-item"><div class="result-val" id="r-runner">—</div><div class="result-label">RUNNER AREA (cm²)</div></div>
+          <div class="result-item"><div class="result-val" id="r-gate">—</div><div class="result-label">GATE AREA (cm²)</div></div>
+          <div class="result-item"><div class="result-val" id="r-riser">—</div><div class="result-label">RISER VOL (cm³)</div></div>
+          <div class="result-item"><div class="result-val" id="r-pour">—</div><div class="result-label">POUR TIME (s)</div></div>
+          <div class="result-item"><div class="result-val" id="r-yield">—</div><div class="result-label">YIELD (%)</div></div>
+        </div>
+      </div>
+      <!-- Quick AI Actions -->
+      <div class="modal-quick-actions">
+        <button onclick="triggerDefectAnalysis()">🔍 Analyze Defects</button>
+        <button onclick="triggerGatingDiagram()">📐 Show Gating Diagram</button>
+        <button onclick="sendPartToChat()">💬 Ask AI About This Part</button>
+      </div>
+      <!-- Gating Diagram -->
+      <div class="gating-diagram" id="gatingDiagram" style="display:none;">
+        <div class="gating-diagram-title">⬡ GATING SYSTEM LAYOUT</div>
+        <div id="gatingDiagramSVG"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+// PART GEOMETRY DEFINITIONS
+// Each part has: geomType (how to calculate volume),
+// dims (input fields), formula (display), volFn (compute volume cm³)
+// ══════════════════════════════════════════════
+const PART_GEOMETRIES = {
+  // GEARS
+  "Spur Gear":           { shape:"Spur Gear (Cylinder with bore)", dims:[{id:"D",label:"Pitch Dia (mm)",def:100},{id:"W",label:"Face Width (mm)",def:30},{id:"d",label:"Bore Dia (mm)",def:25}], formula:"V = π/4 × (D² - d²) × W", vol:d=>(Math.PI/4)*((d.D/10)**2-(d.d/10)**2)*(d.W/10) },
+  "Helical Gear":        { shape:"Helical Gear (Cylinder with bore)", dims:[{id:"D",label:"Pitch Dia (mm)",def:110},{id:"W",label:"Face Width (mm)",def:35},{id:"d",label:"Bore Dia (mm)",def:28},{id:"ha",label:"Helix Angle (°)",def:20}], formula:"V = π/4 × (D² - d²) × W × cos(α)", vol:d=>(Math.PI/4)*((d.D/10)**2-(d.d/10)**2)*(d.W/10)*Math.cos(d.ha*Math.PI/180) },
+  "Bevel Gear":          { shape:"Bevel Gear (Truncated Cone with bore)", dims:[{id:"D",label:"Large End Dia (mm)",def:120},{id:"d_bore",label:"Bore Dia (mm)",def:30},{id:"W",label:"Face Width (mm)",def:40},{id:"cone_angle",label:"Cone Half-Angle (°)",def:45}], formula:"V = π/3 × H × (R² + Rr + r²) − bore", vol:d=>{const R=d.D/20,W=d.W/10,a=d.cone_angle*Math.PI/180,r=R-W*Math.sin(a),bore=Math.PI/4*(d.d_bore/10)**2*W;return Math.PI/3*W*(R*R+R*r+r*r)-bore;} },
+  "Worm Gear":           { shape:"Worm Gear (Torus approximation)", dims:[{id:"D",label:"Pitch Dia (mm)",def:150},{id:"d",label:"Bore Dia (mm)",def:35},{id:"W",label:"Face Width (mm)",def:50}], formula:"V = π/4 × (D² - d²) × W × 0.72 (worm factor)", vol:d=>0.72*(Math.PI/4)*((d.D/10)**2-(d.d/10)**2)*(d.W/10) },
+  "Worm Wheel":          { shape:"Worm Wheel (Cylinder with bore)", dims:[{id:"D",label:"Pitch Dia (mm)",def:200},{id:"d",label:"Bore Dia (mm)",def:40},{id:"W",label:"Face Width (mm)",def:60}], formula:"V = π/4 × (D² - d²) × W", vol:d=>(Math.PI/4)*((d.D/10)**2-(d.d/10)**2)*(d.W/10) },
+  "Rack and Pinion":     { shape:"Rack (Rectangular bar)", dims:[{id:"L",label:"Rack Length (mm)",def:300},{id:"B",label:"Width (mm)",def:30},{id:"H",label:"Height (mm)",def:25}], formula:"V = L × B × H", vol:d=>(d.L/10)*(d.B/10)*(d.H/10) },
+  "Internal Ring Gear":  { shape:"Ring (Hollow Cylinder)", dims:[{id:"Do",label:"Outer Dia (mm)",def:250},{id:"Di",label:"Inner Dia (mm)",def:200},{id:"W",label:"Width (mm)",def:40}], formula:"V = π/4 × (Do² - Di²) × W", vol:d=>(Math.PI/4)*((d.Do/10)**2-(d.Di/10)**2)*(d.W/10) },
+  "Planetary Gear Set":  { shape:"Combined: sun + 3 planets", dims:[{id:"D_sun",label:"Sun Gear Dia (mm)",def:60},{id:"D_planet",label:"Planet Dia (mm)",def:40},{id:"W",label:"Face Width (mm)",def:25},{id:"d_bore",label:"Bore Dia (mm)",def:20}], formula:"V = (sun + 3×planet) cylinder volumes", vol:d=>{const W=d.W/10,sun=(Math.PI/4)*(d.D_sun/10)**2*W,planet=3*(Math.PI/4)*(d.D_planet/10)**2*W;return sun+planet;} },
+  "Crown Gear":          { shape:"Crown Gear (flat disc)", dims:[{id:"Do",label:"Outer Dia (mm)",def:200},{id:"Di",label:"Inner Dia (mm)",def:80},{id:"H",label:"Thickness (mm)",def:30}], formula:"V = π/4 × (Do² - Di²) × H", vol:d=>(Math.PI/4)*((d.Do/10)**2-(d.Di/10)**2)*(d.H/10) },
+  "Hypoid Gear":         { shape:"Hypoid Gear (Bevel approximation)", dims:[{id:"D",label:"Mean Dia (mm)",def:130},{id:"d_bore",label:"Bore Dia (mm)",def:35},{id:"W",label:"Face Width (mm)",def:45}], formula:"V = π/4 × (D² - d²) × W × 0.85", vol:d=>0.85*(Math.PI/4)*((d.D/10)**2-(d.d_bore/10)**2)*(d.W/10) },
+  "Double Helical Gear": { shape:"Cylinder with bore, double width", dims:[{id:"D",label:"Pitch Dia (mm)",def:120},{id:"W",label:"Total Face Width (mm)",def:80},{id:"d",label:"Bore Dia (mm)",def:30}], formula:"V = π/4 × (D² - d²) × W", vol:d=>(Math.PI/4)*((d.D/10)**2-(d.d/10)**2)*(d.W/10) },
+  "Spiral Bevel Gear":   { shape:"Bevel Gear (Truncated Cone)", dims:[{id:"D",label:"Large End Dia (mm)",def:130},{id:"d_bore",label:"Bore Dia (mm)",def:32},{id:"W",label:"Face Width (mm)",def:45},{id:"cone_angle",label:"Cone Half-Angle (°)",def:35}], formula:"V = π/3 × H × (R² + Rr + r²) − bore", vol:d=>{const R=d.D/20,W=d.W/10,a=d.cone_angle*Math.PI/180,r=R-W*Math.sin(a);return Math.PI/3*W*(R*R+R*r+r*r)-(Math.PI/4*(d.d_bore/10)**2*W);} },
+  "Zerol Bevel Gear":    { shape:"Bevel Gear (Truncated Cone)", dims:[{id:"D",label:"Large End Dia (mm)",def:110},{id:"d_bore",label:"Bore Dia (mm)",def:28},{id:"W",label:"Face Width (mm)",def:38},{id:"cone_angle",label:"Cone Half-Angle (°)",def:45}], formula:"V = π/3 × H × (R² + Rr + r²) − bore", vol:d=>{const R=d.D/20,W=d.W/10,a=d.cone_angle*Math.PI/180,r=R-W*Math.sin(a);return Math.PI/3*W*(R*R+R*r+r*r)-(Math.PI/4*(d.d_bore/10)**2*W);} },
+  "Mitre Gear":          { shape:"Bevel (90° miter, equal parts)", dims:[{id:"D",label:"Pitch Dia (mm)",def:80},{id:"d_bore",label:"Bore Dia (mm)",def:20},{id:"W",label:"Face Width (mm)",def:25}], formula:"V = π/3 × W × (R² + Rr + r²)", vol:d=>{const R=d.D/20,W=d.W/10,r=R-W;return Math.PI/3*W*(R*R+R*r+r*r)-(Math.PI/4*(d.d_bore/10)**2*W);} },
+  "Face Gear":           { shape:"Flat Disc with teeth", dims:[{id:"Do",label:"Outer Dia (mm)",def:180},{id:"Di",label:"Inner Dia (mm)",def:60},{id:"H",label:"Thickness (mm)",def:28}], formula:"V = π/4 × (Do² - Di²) × H", vol:d=>(Math.PI/4)*((d.Do/10)**2-(d.Di/10)**2)*(d.H/10) },
+  "Cluster Gear":        { shape:"Two cylinders stacked", dims:[{id:"D1",label:"Gear 1 Dia (mm)",def:100},{id:"W1",label:"Gear 1 Width (mm)",def:30},{id:"D2",label:"Gear 2 Dia (mm)",def:70},{id:"W2",label:"Gear 2 Width (mm)",def:25},{id:"d",label:"Bore Dia (mm)",def:25}], formula:"V = π/4 × [(D1²-d²)×W1 + (D2²-d²)×W2]", vol:d=>(Math.PI/4)*((d.D1/10)**2-(d.d/10)**2)*(d.W1/10)+(Math.PI/4)*((d.D2/10)**2-(d.d/10)**2)*(d.W2/10) },
+  "Idler Gear":          { shape:"Cylinder with bore", dims:[{id:"D",label:"Pitch Dia (mm)",def:80},{id:"W",label:"Width (mm)",def:25},{id:"d",label:"Bore Dia (mm)",def:20}], formula:"V = π/4 × (D² - d²) × W", vol:d=>(Math.PI/4)*((d.D/10)**2-(d.d/10)**2)*(d.W/10) },
+  "Compound Gear":       { shape:"Two cylinders stacked", dims:[{id:"D1",label:"Gear 1 Dia (mm)",def:120},{id:"W1",label:"Gear 1 Width (mm)",def:35},{id:"D2",label:"Gear 2 Dia (mm)",def:80},{id:"W2",label:"Gear 2 Width (mm)",def:30},{id:"d",label:"Bore Dia (mm)",def:30}], formula:"V = π/4 × [(D1²-d²)×W1 + (D2²-d²)×W2]", vol:d=>(Math.PI/4)*((d.D1/10)**2-(d.d/10)**2)*(d.W1/10)+(Math.PI/4)*((d.D2/10)**2-(d.d/10)**2)*(d.W2/10) },
+  "Sector Gear":         { shape:"Sector (fraction of gear disc)", dims:[{id:"D",label:"Pitch Dia (mm)",def:200},{id:"d",label:"Bore Dia (mm)",def:40},{id:"W",label:"Width (mm)",def:30},{id:"angle",label:"Sector Angle (°)",def:90}], formula:"V = (angle/360) × π/4 × (D²-d²) × W", vol:d=>(d.angle/360)*(Math.PI/4)*((d.D/10)**2-(d.d/10)**2)*(d.W/10) },
+  "Differential Ring Gear":{ shape:"Ring with bore", dims:[{id:"Do",label:"Outer Dia (mm)",def:300},{id:"Di",label:"Inner Dia (mm)",def:220},{id:"W",label:"Face Width (mm)",def:45}], formula:"V = π/4 × (Do² - Di²) × W", vol:d=>(Math.PI/4)*((d.Do/10)**2-(d.Di/10)**2)*(d.W/10) },
+  "Sun Gear":            { shape:"Cylinder with spline bore", dims:[{id:"D",label:"Pitch Dia (mm)",def:70},{id:"W",label:"Width (mm)",def:30},{id:"d",label:"Bore Dia (mm)",def:22}], formula:"V = π/4 × (D² - d²) × W", vol:d=>(Math.PI/4)*((d.D/10)**2-(d.d/10)**2)*(d.W/10) },
+  "Drive Pinion":        { shape:"Cylinder with bore", dims:[{id:"D",label:"Pitch Dia (mm)",def:60},{id:"W",label:"Width (mm)",def:40},{id:"d",label:"Shaft Dia (mm)",def:20}], formula:"V = π/4 × (D² - d²) × W", vol:d=>(Math.PI/4)*((d.D/10)**2-(d.d/10)**2)*(d.W/10) },
+  "Transfer Gear":       { shape:"Cylinder with bore", dims:[{id:"D",label:"Pitch Dia (mm)",def:90},{id:"W",label:"Width (mm)",def:28},{id:"d",label:"Bore Dia (mm)",def:24}], formula:"V = π/4 × (D² - d²) × W", vol:d=>(Math.PI/4)*((d.D/10)**2-(d.d/10)**2)*(d.W/10) },
+  "Timing Gear":         { shape:"Cylinder with bore", dims:[{id:"D",label:"Pitch Dia (mm)",def:100},{id:"W",label:"Width (mm)",def:20},{id:"d",label:"Bore Dia (mm)",def:22}], formula:"V = π/4 × (D² - d²) × W", vol:d=>(Math.PI/4)*((d.D/10)**2-(d.d/10)**2)*(d.W/10) },
+  "Noncircular Gear":    { shape:"Avg ellipse approximation", dims:[{id:"a",label:"Major Semi-Axis (mm)",def:60},{id:"b",label:"Minor Semi-Axis (mm)",def:40},{id:"W",label:"Face Width (mm)",def:25},{id:"d",label:"Bore Dia (mm)",def:20}], formula:"V = π × a × b × W − bore", vol:d=>Math.PI*(d.a/10)*(d.b/10)*(d.W/10)-(Math.PI/4*(d.d/10)**2*(d.W/10)) },
+
+  // BEARINGS
+  "Ball Bearing Housing":{ shape:"Hollow Cylinder", dims:[{id:"Do",label:"OD (mm)",def:100},{id:"Di",label:"ID (mm)",def:62},{id:"H",label:"Height (mm)",def:45}], formula:"V = π/4 × (Do² - Di²) × H", vol:d=>(Math.PI/4)*((d.Do/10)**2-(d.Di/10)**2)*(d.H/10) },
+  "Roller Bearing Ring": { shape:"Hollow Cylinder", dims:[{id:"Do",label:"OD (mm)",def:80},{id:"Di",label:"ID (mm)",def:50},{id:"H",label:"Width (mm)",def:20}], formula:"V = π/4 × (Do² - Di²) × H", vol:d=>(Math.PI/4)*((d.Do/10)**2-(d.Di/10)**2)*(d.H/10) },
+  "Tapered Roller Cone": { shape:"Hollow Truncated Cone", dims:[{id:"D",label:"Large End OD (mm)",def:90},{id:"Di",label:"Bore ID (mm)",def:45},{id:"H",label:"Height (mm)",def:30}], formula:"V = π/3 × H × (R² + Rr + r²) − bore", vol:d=>{const R=d.D/20,r=d.D/20-d.H/20,H=d.H/10;return Math.PI/3*H*(R*R+R*r+r*r)-(Math.PI/4*(d.Di/10)**2*H);} },
+  "Bearing Pedestal":    { shape:"Box with bore", dims:[{id:"L",label:"Length (mm)",def:200},{id:"W",label:"Width (mm)",def:100},{id:"H",label:"Height (mm)",def:80},{id:"d_bore",label:"Bore Dia (mm)",def:60}], formula:"V = L×W×H − π/4×d²×W", vol:d=>(d.L/10)*(d.W/10)*(d.H/10)-(Math.PI/4*(d.d_bore/10)**2*(d.W/10)) },
+  "Plummer Block":       { shape:"Box with bore", dims:[{id:"L",label:"Length (mm)",def:220},{id:"W",label:"Width (mm)",def:110},{id:"H",label:"Height (mm)",def:90},{id:"d_bore",label:"Bore Dia (mm)",def:65}], formula:"V = L×W×H − π/4×d²×W × 0.65 (fill factor)", vol:d=>0.65*(d.L/10)*(d.W/10)*(d.H/10) },
+  "Flanged Bearing":     { shape:"Cylinder + flange disc", dims:[{id:"D_fl",label:"Flange Dia (mm)",def:130},{id:"D_hub",label:"Hub Dia (mm)",def:80},{id:"d",label:"Bore Dia (mm)",def:50},{id:"H_fl",label:"Flange Thick (mm)",def:15},{id:"H_hub",label:"Hub Height (mm)",def:60}], formula:"V = π/4×[(D_fl²-d²)×H_fl + (D_hub²-d²)×H_hub]", vol:d=>(Math.PI/4)*((d.D_fl/10)**2-(d.d/10)**2)*(d.H_fl/10)+(Math.PI/4)*((d.D_hub/10)**2-(d.d/10)**2)*(d.H_hub/10) },
+  "Thrust Bearing Seat": { shape:"Flat ring", dims:[{id:"Do",label:"OD (mm)",def:90},{id:"Di",label:"ID (mm)",def:50},{id:"H",label:"Thickness (mm)",def:12}], formula:"V = π/4 × (Do² - Di²) × H", vol:d=>(Math.PI/4)*((d.Do/10)**2-(d.Di/10)**2)*(d.H/10) },
+  "Bearing Cap":         { shape:"Semicircle cap", dims:[{id:"D",label:"Cap Dia (mm)",def:90},{id:"d",label:"Bore Dia (mm)",def:60},{id:"H",label:"Height (mm)",def:40}], formula:"V = (π/4 × D² × H)/2 − bore", vol:d=>(Math.PI/4*(d.D/10)**2*(d.H/10))/2-(Math.PI/4*(d.d/10)**2*(d.H/10)) },
+  "Needle Roller Housing":{ shape:"Thin hollow cylinder", dims:[{id:"Do",label:"OD (mm)",def:55},{id:"Di",label:"ID (mm)",def:45},{id:"H",label:"Length (mm)",def:30}], formula:"V = π/4 × (Do² - Di²) × H", vol:d=>(Math.PI/4)*((d.Do/10)**2-(d.Di/10)**2)*(d.H/10) },
+  "Self-Aligning Race":  { shape:"Hollow Cylinder", dims:[{id:"Do",label:"OD (mm)",def:100},{id:"Di",label:"ID (mm)",def:70},{id:"H",label:"Width (mm)",def:25}], formula:"V = π/4 × (Do² - Di²) × H", vol:d=>(Math.PI/4)*((d.Do/10)**2-(d.Di/10)**2)*(d.H/10) },
+  "Journal Bearing Shell":{ shape:"Half hollow cylinder", dims:[{id:"Do",label:"OD (mm)",def:80},{id:"Di",label:"ID (mm)",def:65},{id:"L",label:"Length (mm)",def:80}], formula:"V = π/4 × (Do² - Di²) × L", vol:d=>(Math.PI/4)*((d.Do/10)**2-(d.Di/10)**2)*(d.L/10) },
+  "Sleeve Bearing":      { shape:"Hollow Cylinder", dims:[{id:"Do",label:"OD (mm)",def:70},{id:"Di",label:"ID (mm)",def:55},{id:"L",label:"Length (mm)",def:90}], formula:"V = π/4 × (Do² - Di²) × L", vol:d=>(Math.PI/4)*((d.Do/10)**2-(d.Di/10)**2)*(d.L/10) },
+  "Pivot Bearing":       { shape:"Disc + hemisphere", dims:[{id:"D",label:"Dia (mm)",def:60},{id:"H",label:"Total Height (mm)",def:40}], formula:"V = π/4 × D² × H × 0.75", vol:d=>0.75*(Math.PI/4*(d.D/10)**2*(d.H/10)) },
+  "Eccentric Bearing":   { shape:"Off-centre cylinder", dims:[{id:"Do",label:"OD (mm)",def:90},{id:"Di",label:"ID (mm)",def:45},{id:"H",label:"Width (mm)",def:30}], formula:"V = π/4 × (Do² - Di²) × H", vol:d=>(Math.PI/4)*((d.Do/10)**2-(d.Di/10)**2)*(d.H/10) },
+  "Slide Bearing Block": { shape:"Rectangular block with bore", dims:[{id:"L",label:"Length (mm)",def:150},{id:"W",label:"Width (mm)",def:80},{id:"H",label:"Height (mm)",def:60},{id:"d",label:"Bore Dia (mm)",def:50}], formula:"V = L×W×H − π/4×d²×W", vol:d=>(d.L/10)*(d.W/10)*(d.H/10)-(Math.PI/4*(d.d/10)**2*(d.W/10)) },
+
+  // PULLEYS
+  "V-Belt Pulley":       { shape:"Cylinder with hub bore", dims:[{id:"D",label:"PCD (mm)",def:200},{id:"d",label:"Bore (mm)",def:35},{id:"W",label:"Width (mm)",def:60}], formula:"V = π/4 × (D² - d²) × W × 0.7 (groove factor)", vol:d=>0.7*(Math.PI/4)*((d.D/10)**2-(d.d/10)**2)*(d.W/10) },
+  "Flat Belt Pulley":    { shape:"Cylinder with bore", dims:[{id:"D",label:"Dia (mm)",def:250},{id:"d",label:"Bore (mm)",def:40},{id:"W",label:"Width (mm)",def:70}], formula:"V = π/4 × (D² - d²) × W", vol:d=>(Math.PI/4)*((d.D/10)**2-(d.d/10)**2)*(d.W/10) },
+  "Timing Belt Pulley":  { shape:"Cylinder with bore", dims:[{id:"D",label:"PCD (mm)",def:100},{id:"d",label:"Bore (mm)",def:22},{id:"W",label:"Width (mm)",def:30}], formula:"V = π/4 × (D² - d²) × W", vol:d=>(Math.PI/4)*((d.D/10)**2-(d.d/10)**2)*(d.W/10) },
+  "Chain Sprocket":      { shape:"Cylinder with bore & hub", dims:[{id:"D",label:"PCD (mm)",def:160},{id:"d",label:"Bore (mm)",def:32},{id:"W",label:"Width (mm)",def:25}], formula:"V = π/4 × (D² - d²) × W", vol:d=>(Math.PI/4)*((d.D/10)**2-(d.d/10)**2)*(d.W/10) },
+  "Rope Pulley":         { shape:"Grooved cylinder", dims:[{id:"D",label:"Dia (mm)",def:300},{id:"d",label:"Bore (mm)",def:50},{id:"W",label:"Width (mm)",def:80}], formula:"V = π/4 × (D² - d²) × W × 0.8", vol:d=>0.8*(Math.PI/4)*((d.D/10)**2-(d.d/10)**2)*(d.W/10) },
+  "Jockey Pulley":       { shape:"Small cylinder", dims:[{id:"D",label:"Dia (mm)",def:80},{id:"d",label:"Bore (mm)",def:20},{id:"W",label:"Width (mm)",def:30}], formula:"V = π/4 × (D² - d²) × W", vol:d=>(Math.PI/4)*((d.D/10)**2-(d.d/10)**2)*(d.W/10) },
+  "Tensioner Pulley":    { shape:"Cylinder with bore", dims:[{id:"D",label:"Dia (mm)",def:90},{id:"d",label:"Bore (mm)",def:20},{id:"W",label:"Width (mm)",def:28}], formula:"V = π/4 × (D² - d²) × W", vol:d=>(Math.PI/4)*((d.D/10)**2-(d.d/10)**2)*(d.W/10) },
+  "Stepped Pulley":      { shape:"Three cylinders stacked", dims:[{id:"D1",label:"Step 1 Dia (mm)",def:200},{id:"D2",label:"Step 2 Dia (mm)",def:150},{id:"D3",label:"Step 3 Dia (mm)",def:100},{id:"d",label:"Bore (mm)",def:30},{id:"W",label:"Each Step W (mm)",def:40}], formula:"V = π/4 × [(D1²+D2²+D3²) − 3d²] × W", vol:d=>(Math.PI/4)*((d.D1/10)**2+(d.D2/10)**2+(d.D3/10)**2-3*(d.d/10)**2)*(d.W/10) },
+  "Variable Speed Pulley":{ shape:"Taper cylinder", dims:[{id:"D_max",label:"Max Dia (mm)",def:250},{id:"D_min",label:"Min Dia (mm)",def:120},{id:"d",label:"Bore (mm)",def:40},{id:"W",label:"Width (mm)",def:80}], formula:"V = π/4 × ((D_max+D_min)/2)² − d²) × W", vol:d=>(Math.PI/4)*(((d.D_max+d.D_min)/20)**2-(d.d/10)**2)*(d.W/10) },
+  "Crane Sheave":        { shape:"Grooved wheel", dims:[{id:"D",label:"Dia (mm)",def:400},{id:"d",label:"Bore (mm)",def:60},{id:"W",label:"Width (mm)",def:100}], formula:"V = π/4 × (D² - d²) × W × 0.75", vol:d=>0.75*(Math.PI/4)*((d.D/10)**2-(d.d/10)**2)*(d.W/10) },
+  "Wire Rope Drum":      { shape:"Hollow cylinder", dims:[{id:"Do",label:"OD (mm)",def:500},{id:"Di",label:"ID (mm)",def:380},{id:"L",label:"Length (mm)",def:600}], formula:"V = π/4 × (Do² - Di²) × L", vol:d=>(Math.PI/4)*((d.Do/10)**2-(d.Di/10)**2)*(d.L/10) },
+  "Drive Sprocket":      { shape:"Cylinder with bore", dims:[{id:"D",label:"PCD (mm)",def:200},{id:"d",label:"Bore (mm)",def:40},{id:"W",label:"Width (mm)",def:35}], formula:"V = π/4 × (D² - d²) × W", vol:d=>(Math.PI/4)*((d.D/10)**2-(d.d/10)**2)*(d.W/10) },
+  "Conveyor Sprocket":   { shape:"Cylinder with bore", dims:[{id:"D",label:"PCD (mm)",def:300},{id:"d",label:"Bore (mm)",def:50},{id:"W",label:"Width (mm)",def:60}], formula:"V = π/4 × (D² - d²) × W", vol:d=>(Math.PI/4)*((d.D/10)**2-(d.d/10)**2)*(d.W/10) },
+
+  // VALVES
+  "Gate Valve Body":     { shape:"Box body with bore", dims:[{id:"L",label:"Body Length (mm)",def:200},{id:"W",label:"Body Width (mm)",def:120},{id:"H",label:"Body Height (mm)",def:150},{id:"d",label:"Port Dia (mm)",def:80}], formula:"V = L×W×H × 0.45 (wall factor) − bore", vol:d=>0.45*(d.L/10)*(d.W/10)*(d.H/10)-(Math.PI/4*(d.d/10)**2*(d.L/10)) },
+  "Globe Valve Body":    { shape:"Spherical body with ports", dims:[{id:"D",label:"Body Dia (mm)",def:150},{id:"d",label:"Port Dia (mm)",def:50},{id:"W",label:"Wall Thick (mm)",def:15}], formula:"V = 4/3π × R_outer³ − R_inner³ × 0.5", vol:d=>{const R=(d.D/20),r=R-d.W/10;return(4/3)*Math.PI*(R**3-r**3)*0.5;} },
+  "Ball Valve Body":     { shape:"Sphere with cylindrical ports", dims:[{id:"D",label:"Body Dia (mm)",def:120},{id:"d",label:"Port Dia (mm)",def:50},{id:"W",label:"Wall Thick (mm)",def:12}], formula:"V = 4/3π × (R³ − r³)", vol:d=>{const R=d.D/20,r=R-d.W/10;return(4/3)*Math.PI*(R**3-r**3);} },
+  "Butterfly Valve Disc":{ shape:"Flat disc", dims:[{id:"D",label:"Disc Dia (mm)",def:200},{id:"H",label:"Thickness (mm)",def:20}], formula:"V = π/4 × D² × H", vol:d=>(Math.PI/4*(d.D/10)**2*(d.H/10)) },
+  "Check Valve Body":    { shape:"Box with bore", dims:[{id:"L",label:"Length (mm)",def:120},{id:"W",label:"Width (mm)",def:90},{id:"H",label:"Height (mm)",def:90},{id:"d",label:"Port Dia (mm)",def:50}], formula:"V = L×W×H × 0.4 − bore", vol:d=>0.4*(d.L/10)*(d.W/10)*(d.H/10)-(Math.PI/4*(d.d/10)**2*(d.L/10)) },
+
+  // PIPES & FITTINGS (using standard pipe formulas)
+  "Elbow 90°":           { shape:"Torus quarter section", dims:[{id:"R",label:"Bend Radius (mm)",def:75},{id:"d_o",label:"Pipe OD (mm)",def:60},{id:"t",label:"Wall Thick (mm)",def:6}], formula:"V = (π/2) × 2π × R × π/4 × (d_o² − d_i²)", vol:d=>{const di=d.d_o-2*d.t,A=Math.PI/4*((d.d_o/10)**2-(di/10)**2);return(Math.PI/2)*2*Math.PI*(d.R/10)*A/(2*Math.PI);} },
+  "Elbow 45°":           { shape:"Torus 45° section", dims:[{id:"R",label:"Bend Radius (mm)",def:60},{id:"d_o",label:"Pipe OD (mm)",def:50},{id:"t",label:"Wall Thick (mm)",def:5}], formula:"V = (π/4) × 2π × R × π/4 × (d_o² − d_i²)", vol:d=>{const di=d.d_o-2*d.t,A=Math.PI/4*((d.d_o/10)**2-(di/10)**2);return(Math.PI/4)*2*Math.PI*(d.R/10)*A/(2*Math.PI);} },
+  "Tee Junction":        { shape:"Three pipes joined", dims:[{id:"d_o",label:"Main Pipe OD (mm)",def:60},{id:"t",label:"Wall Thick (mm)",def:6},{id:"L_main",label:"Main Length (mm)",def:150},{id:"L_branch",label:"Branch Length (mm)",def:80}], formula:"V = π/4 × (d_o² − d_i²) × (L_main + L_branch)", vol:d=>{const di=d.d_o-2*d.t;return(Math.PI/4)*((d.d_o/10)**2-(di/10)**2)*((d.L_main+d.L_branch)/10);} },
+  "Cross Fitting":       { shape:"Four pipes joined", dims:[{id:"d_o",label:"Pipe OD (mm)",def:60},{id:"t",label:"Wall Thick (mm)",def:6},{id:"L",label:"Each Arm (mm)",def:80}], formula:"V = π/4 × (d_o² − d_i²) × 4L", vol:d=>{const di=d.d_o-2*d.t;return(Math.PI/4)*((d.d_o/10)**2-(di/10)**2)*4*(d.L/10);} },
+  "Pipe Reducer":        { shape:"Truncated hollow cone", dims:[{id:"D_large",label:"Large OD (mm)",def:100},{id:"D_small",label:"Small OD (mm)",def:60},{id:"t",label:"Wall Thick (mm)",def:8},{id:"L",label:"Length (mm)",def:120}], formula:"V = π/3 × L × (R_o² + R_or + r_o²) − inner", vol:d=>{const Ro=d.D_large/20,ro=d.D_small/20,L=d.L/10,Ri=Ro-d.t/10,ri=ro-d.t/10;return Math.PI/3*L*(Ro*Ro+Ro*ro+ro*ro)-Math.PI/3*L*(Ri*Ri+Ri*ri+ri*ri);} },
+  "Pipe Cap":            { shape:"Hemispherical shell", dims:[{id:"D",label:"Pipe OD (mm)",def:80},{id:"t",label:"Wall Thick (mm)",def:8}], formula:"V = 2/3π × (R³ − r³)", vol:d=>{const R=d.D/20,r=R-d.t/10;return(2/3)*Math.PI*(R**3-r**3);} },
+  "Socket Flange":       { shape:"Disc + collar", dims:[{id:"D_fl",label:"Flange OD (mm)",def:200},{id:"d_pipe",label:"Pipe OD (mm)",def:80},{id:"t_fl",label:"Flange Thick (mm)",def:18},{id:"H_collar",label:"Collar Height (mm)",def:60}], formula:"V = flange disc + collar ring", vol:d=>(Math.PI/4)*((d.D_fl/10)**2-(d.d_pipe/10)**2)*(d.t_fl/10)+(Math.PI/4)*((d.d_pipe/10+2)**2-(d.d_pipe/10)**2)*(d.H_collar/10) },
+  "Weld Neck Flange":    { shape:"Disc + tapered neck", dims:[{id:"D_fl",label:"Flange OD (mm)",def:220},{id:"d_bore",label:"Bore (mm)",def:80},{id:"t_fl",label:"Flange Thick (mm)",def:22},{id:"H_neck",label:"Neck Height (mm)",def:70}], formula:"V = flange disc + neck (avg dia)", vol:d=>(Math.PI/4)*((d.D_fl/10)**2-(d.d_bore/10)**2)*(d.t_fl/10)+(Math.PI/4)*((d.d_bore/10+1.5)**2-(d.d_bore/10)**2)*(d.H_neck/10) },
+  "Blind Flange":        { shape:"Solid disc", dims:[{id:"D",label:"Flange OD (mm)",def:200},{id:"t",label:"Thickness (mm)",def:25}], formula:"V = π/4 × D² × t", vol:d=>(Math.PI/4*(d.D/10)**2*(d.t/10)) },
+  "Slip-On Flange":      { shape:"Ring disc", dims:[{id:"D_fl",label:"OD (mm)",def:180},{id:"d_bore",label:"Bore (mm)",def:90},{id:"t",label:"Thickness (mm)",def:18}], formula:"V = π/4 × (Do² - Di²) × t", vol:d=>(Math.PI/4)*((d.D_fl/10)**2-(d.d_bore/10)**2)*(d.t/10) },
+  "Lap Joint Flange":    { shape:"Ring disc", dims:[{id:"D_fl",label:"OD (mm)",def:180},{id:"d_bore",label:"Bore (mm)",def:90},{id:"t",label:"Thickness (mm)",def:18}], formula:"V = π/4 × (Do² - Di²) × t", vol:d=>(Math.PI/4)*((d.D_fl/10)**2-(d.d_bore/10)**2)*(d.t/10) },
+  "Union Coupling":      { shape:"Two cylinders (threaded)", dims:[{id:"Do",label:"OD (mm)",def:80},{id:"Di",label:"Bore (mm)",def:55},{id:"L",label:"Length (mm)",def:90}], formula:"V = π/4 × (Do² - Di²) × L", vol:d=>(Math.PI/4)*((d.Do/10)**2-(d.Di/10)**2)*(d.L/10) },
+  "Street Elbow":        { shape:"Compact elbow", dims:[{id:"R",label:"Bend Radius (mm)",def:50},{id:"d_o",label:"Pipe OD (mm)",def:40},{id:"t",label:"Wall Thick (mm)",def:5}], formula:"V = (π/2) × 2πR × A_wall", vol:d=>{const di=d.d_o-2*d.t,A=Math.PI/4*((d.d_o/10)**2-(di/10)**2);return(Math.PI/2)*2*Math.PI*(d.R/10)*A/(2*Math.PI);} },
+  "Swage Nipple":        { shape:"Hollow truncated cone", dims:[{id:"D1",label:"Large End OD (mm)",def:80},{id:"D2",label:"Small End OD (mm)",def:50},{id:"t",label:"Wall (mm)",def:6},{id:"L",label:"Length (mm)",def:100}], formula:"V = π/3 × L × (R_avg_o² - R_avg_i²)", vol:d=>{const Ro=(d.D1+d.D2)/40,Ri=Ro-d.t/10,L=d.L/10;return Math.PI*L*(Ro**2-Ri**2);} },
+  "Y-Branch Fitting":    { shape:"Main + angled branch", dims:[{id:"d_o",label:"Pipe OD (mm)",def:60},{id:"t",label:"Wall Thick (mm)",def:6},{id:"L_main",label:"Main Length (mm)",def:140},{id:"L_branch",label:"Branch Length (mm)",def:100}], formula:"V = π/4 × (do²-di²) × (L_main + L_branch)", vol:d=>{const di=d.d_o-2*d.t;return(Math.PI/4)*((d.d_o/10)**2-(di/10)**2)*((d.L_main+d.L_branch)/10);} },
+
+  // PUMPS
+  "Pump Casing":         { shape:"Volute shell (hollow)", dims:[{id:"Do",label:"OD (mm)",def:300},{id:"Di",label:"ID (mm)",def:200},{id:"W",label:"Width (mm)",def:100},{id:"t",label:"Wall Thick (mm)",def:15}], formula:"V = [π/4×(Do²-Di²)×W] × 0.55", vol:d=>0.55*(Math.PI/4)*((d.Do/10)**2-(d.Di/10)**2)*(d.W/10) },
+  "Impeller":            { shape:"Disc with vanes", dims:[{id:"Do",label:"OD (mm)",def:250},{id:"Di",label:"Eye Dia (mm)",def:80},{id:"B",label:"Vane Height (mm)",def:30},{id:"t",label:"Disc Thick (mm)",def:12}], formula:"V = π/4×(Do²-Di²)×t + vane volume", vol:d=>(Math.PI/4)*((d.Do/10)**2-(d.Di/10)**2)*(d.t/10+d.B/10*0.3) },
+  "Diffuser Casing":     { shape:"Ring with vanes", dims:[{id:"Do",label:"OD (mm)",def:320},{id:"Di",label:"ID (mm)",def:260},{id:"W",label:"Width (mm)",def:80}], formula:"V = π/4 × (Do² - Di²) × W × 0.6", vol:d=>0.6*(Math.PI/4)*((d.Do/10)**2-(d.Di/10)**2)*(d.W/10) },
+  "Pump Volute":         { shape:"Spiral housing", dims:[{id:"D_max",label:"Max Dia (mm)",def:350},{id:"D_min",label:"Min Dia (mm)",def:200},{id:"W",label:"Width (mm)",def:90}], formula:"V = π/4 × (D_avg² ) × W × 0.4", vol:d=>0.4*(Math.PI/4)*(((d.D_max+d.D_min)/20)**2)*(d.W/10) },
+  "Hydraulic Cylinder Body":{ shape:"Hollow cylinder", dims:[{id:"Do",label:"OD (mm)",def:120},{id:"Di",label:"ID (mm)",def:90},{id:"L",label:"Length (mm)",def:400}], formula:"V = π/4 × (Do² - Di²) × L", vol:d=>(Math.PI/4)*((d.Do/10)**2-(d.Di/10)**2)*(d.L/10) },
+  "Pump Bracket":        { shape:"L-bracket", dims:[{id:"L",label:"Length (mm)",def:200},{id:"W",label:"Width (mm)",def:80},{id:"H",label:"Height (mm)",def:100},{id:"t",label:"Wall Thick (mm)",def:12}], formula:"V = (L×W + H×W) × t", vol:d=>((d.L/10)*(d.W/10)+(d.H/10)*(d.W/10))*(d.t/10) },
+  "Gear Pump Body":      { shape:"Box with two bores", dims:[{id:"L",label:"Length (mm)",def:150},{id:"W",label:"Width (mm)",def:100},{id:"H",label:"Height (mm)",def:80},{id:"d",label:"Gear Bore Dia (mm)",def:50}], formula:"V = L×W×H × 0.5 − 2×bore", vol:d=>0.5*(d.L/10)*(d.W/10)*(d.H/10)-(2*Math.PI/4*(d.d/10)**2*(d.W/10)) },
+  "Compressor Housing":  { shape:"Cylinder shell", dims:[{id:"Do",label:"OD (mm)",def:400},{id:"Di",label:"ID (mm)",def:340},{id:"L",label:"Length (mm)",def:300}], formula:"V = π/4 × (Do² - Di²) × L", vol:d=>(Math.PI/4)*((d.Do/10)**2-(d.Di/10)**2)*(d.L/10) },
+  "Turbine Housing":     { shape:"Ring housing", dims:[{id:"Do",label:"OD (mm)",def:500},{id:"Di",label:"ID (mm)",def:400},{id:"W",label:"Width (mm)",def:120}], formula:"V = π/4 × (Do² - Di²) × W", vol:d=>(Math.PI/4)*((d.Do/10)**2-(d.Di/10)**2)*(d.W/10) },
+  "Vane Pump Ring":      { shape:"Ring", dims:[{id:"Do",label:"OD (mm)",def:120},{id:"Di",label:"ID (mm)",def:90},{id:"W",label:"Width (mm)",def:40}], formula:"V = π/4 × (Do² - Di²) × W", vol:d=>(Math.PI/4)*((d.Do/10)**2-(d.Di/10)**2)*(d.W/10) },
+  "Suction Manifold":    { shape:"Y-shaped hollow body", dims:[{id:"D_main",label:"Main Port OD (mm)",def:150},{id:"D_branch",label:"Branch OD (mm)",def:100},{id:"t",label:"Wall (mm)",def:12},{id:"L",label:"Total Length (mm)",def:400}], formula:"V = π/4 × (D_main²+2×D_branch²−3×Di²) × L/3", vol:d=>{const dm=d.D_main/10,db=d.D_branch/10,t=d.t/10,L=d.L/10;return(Math.PI/4)*((dm**2+2*db**2-3*(dm-2*t)**2))*(L/3);} },
+  "Piston Pump Housing": { shape:"Cylinder with multiple bores", dims:[{id:"Do",label:"Housing OD (mm)",def:200},{id:"Di",label:"Cylinder ID (mm)",def:80},{id:"L",label:"Length (mm)",def:250},{id:"n",label:"No. of Cylinders",def:5}], formula:"V = π/4 × Do² × L − n×π/4×Di²×L", vol:d=>(Math.PI/4)*((d.Do/10)**2*(d.L/10))-(d.n*Math.PI/4*(d.Di/10)**2*(d.L/10)) },
+
+  // ENGINE PARTS
+  "Engine Block":        { shape:"Rectangular block with cylinder bores", dims:[{id:"L",label:"Length (mm)",def:600},{id:"W",label:"Width (mm)",def:300},{id:"H",label:"Height (mm)",def:250},{id:"d_cyl",label:"Cylinder Bore (mm)",def:85},{id:"n_cyl",label:"No. of Cylinders",def:4}], formula:"V = L×W×H×0.35 − n×π/4×d²×H", vol:d=>0.35*(d.L/10)*(d.W/10)*(d.H/10)-(d.n_cyl*Math.PI/4*(d.d_cyl/10)**2*(d.H/10)) },
+  "Cylinder Head":       { shape:"Slab with ports & chambers", dims:[{id:"L",label:"Length (mm)",def:500},{id:"W",label:"Width (mm)",def:180},{id:"H",label:"Height (mm)",def:90},{id:"d_port",label:"Port Dia (mm)",def:35},{id:"n_ports",label:"No. of Ports",def:8}], formula:"V = L×W×H×0.4 − n×π/4×d²×H", vol:d=>0.4*(d.L/10)*(d.W/10)*(d.H/10)-(d.n_ports*Math.PI/4*(d.d_port/10)**2*(d.H/10)) },
+  "Crankshaft Main":     { shape:"Multi-journal shaft", dims:[{id:"d_j",label:"Journal Dia (mm)",def:65},{id:"d_c",label:"Crankpin Dia (mm)",def:55},{id:"L_total",label:"Total Length (mm)",def:600},{id:"r",label:"Stroke/2 (mm)",def:45}], formula:"V ≈ π/4 × d_j² × L + counterweights", vol:d=>1.4*(Math.PI/4*(d.d_j/10)**2*(d.L_total/10)) },
+  "Piston":              { shape:"Hollow cylinder (crown + skirt)", dims:[{id:"D",label:"Bore Dia (mm)",def:85},{id:"H",label:"Total Height (mm)",def:90},{id:"t_crown",label:"Crown Thick (mm)",def:12},{id:"t_wall",label:"Skirt Wall (mm)",def:4}], formula:"V = π/4×D²×t_crown + π/4×(D²-(D-2t)²)×skirt", vol:d=>{const D=d.D/10,H=d.H/10,tc=d.t_crown/10,tw=d.t_wall/10,skirt=H-tc;return Math.PI/4*D**2*tc+Math.PI/4*(D**2-(D-2*tw)**2)*skirt;} },
+  "Flywheel":            { shape:"Disc + rim", dims:[{id:"D",label:"OD (mm)",def:400},{id:"d",label:"Bore (mm)",def:60},{id:"W_rim",label:"Rim Width (mm)",def:50},{id:"t_disc",label:"Disc Thick (mm)",def:20}], formula:"V = disc + rim (hollow torus)", vol:d=>{const R=d.D/20,r=d.D/20-d.W_rim/10,bore=d.d/20;return Math.PI/4*((d.D/10)**2-(d.d/10)**2)*(d.t_disc/10)+2*Math.PI*Math.PI*r*(d.W_rim/20)**2;} },
+  "Connecting Rod":      { shape:"I-section rod", dims:[{id:"L",label:"C-C Length (mm)",def:180},{id:"d_big",label:"Big End Bore (mm)",def:55},{id:"d_small",label:"Small End Bore (mm)",def:28},{id:"W",label:"Rod Width (mm)",def:30},{id:"t",label:"Rod Thick (mm)",def:15}], formula:"V ≈ L×W×t×0.65 + big end boss + small end boss", vol:d=>0.65*(d.L/10)*(d.W/10)*(d.t/10)+0.4*(Math.PI/4*(d.d_big/10+1.5)**2*(d.W/10))+0.4*(Math.PI/4*(d.d_small/10+1)**2*(d.W/10)) },
+  "Camshaft Housing":    { shape:"Box with bore", dims:[{id:"L",label:"Length (mm)",def:500},{id:"W",label:"Width (mm)",def:100},{id:"H",label:"Height (mm)",def:80},{id:"d",label:"Camshaft Bore (mm)",def:40}], formula:"V = L×W×H×0.3", vol:d=>0.3*(d.L/10)*(d.W/10)*(d.H/10) },
+  "Oil Sump":            { shape:"Shallow tray", dims:[{id:"L",label:"Length (mm)",def:450},{id:"W",label:"Width (mm)",def:280},{id:"H",label:"Depth (mm)",def:120},{id:"t",label:"Wall Thick (mm)",def:6}], formula:"V = outer − inner volume", vol:d=>(d.L/10)*(d.W/10)*(d.H/10)-(((d.L-2*d.t)/10)*((d.W-2*d.t)/10)*((d.H-d.t)/10)) },
+  "Intake Manifold":     { shape:"Runner network", dims:[{id:"D_main",label:"Plenum Dia (mm)",def:100},{id:"L_runner",label:"Runner Length (mm)",def:200},{id:"d_runner",label:"Runner Dia (mm)",def:40},{id:"n",label:"No. of Runners",def:4}], formula:"V = plenum + n×runner volumes", vol:d=>(Math.PI/4*(d.D_main/10)**2*(d.D_main/10))+(d.n*Math.PI/4*(d.d_runner/10)**2*(d.L_runner/10)) },
+  "Exhaust Manifold":    { shape:"Collector pipes", dims:[{id:"D_collector",label:"Collector Dia (mm)",def:80},{id:"d_port",label:"Port Dia (mm)",def:42},{id:"L",label:"Length (mm)",def:300},{id:"n",label:"No. of Ports",def:4}], formula:"V = collector + n×port tubes", vol:d=>(Math.PI/4*(d.D_collector/10)**2*(d.L/10*0.4))+(d.n*Math.PI/4*(d.d_port/10)**2*(d.L/10*0.6/d.n)) },
+  "Water Pump Housing":  { shape:"Volute body", dims:[{id:"D",label:"Volute Dia (mm)",def:180},{id:"d_inlet",label:"Inlet Dia (mm)",def:60},{id:"W",label:"Width (mm)",def:70}], formula:"V = π/4×D²×W×0.35", vol:d=>0.35*(Math.PI/4*(d.D/10)**2*(d.W/10)) },
+  "Oil Pump Body":       { shape:"Box with gear bores", dims:[{id:"L",label:"Length (mm)",def:120},{id:"W",label:"Width (mm)",def:80},{id:"H",label:"Height (mm)",def:60},{id:"d",label:"Gear Bore Dia (mm)",def:35}], formula:"V = L×W×H×0.45 − 2×bores", vol:d=>0.45*(d.L/10)*(d.W/10)*(d.H/10)-(2*Math.PI/4*(d.d/10)**2*(d.W/10)) },
+  "Timing Cover":        { shape:"Sheet with bosses", dims:[{id:"L",label:"Length (mm)",def:300},{id:"W",label:"Width (mm)",def:200},{id:"t",label:"Wall Thick (mm)",def:6}], formula:"V = L×W×t×0.5", vol:d=>0.5*(d.L/10)*(d.W/10)*(d.t/10) },
+  "Valve Cover":         { shape:"Tray cover", dims:[{id:"L",label:"Length (mm)",def:380},{id:"W",label:"Width (mm)",def:160},{id:"H",label:"Height (mm)",def:60},{id:"t",label:"Wall (mm)",def:5}], formula:"V = outer − inner", vol:d=>(d.L/10)*(d.W/10)*(d.H/10)-(((d.L-2*d.t)/10)*((d.W-2*d.t)/10)*((d.H-d.t)/10)) },
+  "Rocker Arm":          { shape:"Curved lever", dims:[{id:"L",label:"Arm Length (mm)",def:100},{id:"W",label:"Width (mm)",def:20},{id:"H",label:"Thickness (mm)",def:18}], formula:"V = L×W×H×0.55", vol:d=>0.55*(d.L/10)*(d.W/10)*(d.H/10) },
+  "Tappet Block":        { shape:"Block with tappet bores", dims:[{id:"L",label:"Length (mm)",def:400},{id:"W",label:"Width (mm)",def:80},{id:"H",label:"Height (mm)",def:60},{id:"d_tap",label:"Tappet Bore (mm)",def:22},{id:"n",label:"No. of Tappets",def:8}], formula:"V = L×W×H×0.4 − n×tappet bores", vol:d=>0.4*(d.L/10)*(d.W/10)*(d.H/10)-(d.n*Math.PI/4*(d.d_tap/10)**2*(d.H/10)) },
+  "Gudgeon Pin":         { shape:"Hollow cylinder", dims:[{id:"Do",label:"OD (mm)",def:22},{id:"Di",label:"ID (mm)",def:12},{id:"L",label:"Length (mm)",def:70}], formula:"V = π/4 × (Do² - Di²) × L", vol:d=>(Math.PI/4)*((d.Do/10)**2-(d.Di/10)**2)*(d.L/10) },
+  "Cylinder Liner":      { shape:"Hollow cylinder", dims:[{id:"Do",label:"OD (mm)",def:95},{id:"Di",label:"ID (mm)",def:85},{id:"L",label:"Length (mm)",def:180}], formula:"V = π/4 × (Do² - Di²) × L", vol:d=>(Math.PI/4)*((d.Do/10)**2-(d.Di/10)**2)*(d.L/10) },
+
+  // WHEELS & DISCS
+  "Handwheel":           { shape:"Rim + spokes + hub", dims:[{id:"D",label:"OD (mm)",def:200},{id:"d",label:"Hub Dia (mm)",def:30},{id:"W",label:"Width (mm)",def:15},{id:"n_spoke",label:"No. of Spokes",def:5}], formula:"V = rim + spokes + hub", vol:d=>{const R=d.D/20,r=d.d/20,W=d.W/10;return 2*Math.PI*Math.PI*R*0.01+d.n_spoke*Math.PI/4*(0.8)**2*(R-r)+Math.PI/4*(d.d/10)**2*W;} },
+  "Spoked Wheel":        { shape:"Rim + spokes + hub", dims:[{id:"D",label:"OD (mm)",def:500},{id:"W",label:"Rim Width (mm)",def:60},{id:"t_rim",label:"Rim Thick (mm)",def:20},{id:"d_hub",label:"Hub Dia (mm)",def:80},{id:"n",label:"Spokes",def:6}], formula:"V = rim torus + n×spokes + hub", vol:d=>2*Math.PI**2*(d.D/20-d.t_rim/10)*(d.t_rim/10)**2+(d.n*Math.PI/4*(1.5)**2*(d.D/20-d.d_hub/20))+Math.PI/4*(d.d_hub/10)**2*(d.W/10) },
+  "Disc Brake Rotor":    { shape:"Vented disc", dims:[{id:"Do",label:"OD (mm)",def:280},{id:"Di",label:"ID (mm)",def:120},{id:"t",label:"Thickness (mm)",def:25}], formula:"V = π/4 × (Do² - Di²) × t × 0.75 (vented)", vol:d=>0.75*(Math.PI/4)*((d.Do/10)**2-(d.Di/10)**2)*(d.t/10) },
+  "Brake Drum":          { shape:"Hollow cylinder", dims:[{id:"Do",label:"OD (mm)",def:300},{id:"Di",label:"ID (mm)",def:260},{id:"W",label:"Width (mm)",def:80}], formula:"V = π/4 × (Do² - Di²) × W", vol:d=>(Math.PI/4)*((d.Do/10)**2-(d.Di/10)**2)*(d.W/10) },
+  "Flywheel Disc":       { shape:"Solid disc with bore", dims:[{id:"D",label:"OD (mm)",def:600},{id:"d",label:"Bore (mm)",def:80},{id:"t",label:"Thickness (mm)",def:50}], formula:"V = π/4 × (D² - d²) × t", vol:d=>(Math.PI/4)*((d.D/10)**2-(d.d/10)**2)*(d.t/10) },
+  "Grinding Wheel Hub":  { shape:"Ring", dims:[{id:"Do",label:"OD (mm)",def:100},{id:"Di",label:"ID (mm)",def:50},{id:"W",label:"Width (mm)",def:30}], formula:"V = π/4 × (Do² - Di²) × W", vol:d=>(Math.PI/4)*((d.Do/10)**2-(d.Di/10)**2)*(d.W/10) },
+  "Gear Wheel Blank":    { shape:"Cylinder with bore", dims:[{id:"D",label:"Blank Dia (mm)",def:200},{id:"d",label:"Bore (mm)",def:40},{id:"W",label:"Width (mm)",def:50}], formula:"V = π/4 × (D² - d²) × W", vol:d=>(Math.PI/4)*((d.D/10)**2-(d.d/10)**2)*(d.W/10) },
+  "Rope Sheave":         { shape:"Grooved pulley", dims:[{id:"D",label:"Dia (mm)",def:250},{id:"d",label:"Bore (mm)",def:50},{id:"W",label:"Width (mm)",def:80}], formula:"V = π/4 × (D² - d²) × W × 0.78", vol:d=>0.78*(Math.PI/4)*((d.D/10)**2-(d.d/10)**2)*(d.W/10) },
+  "Impeller Disc":       { shape:"Disc with vanes", dims:[{id:"Do",label:"OD (mm)",def:300},{id:"Di",label:"Eye Dia (mm)",def:100},{id:"t",label:"Thickness (mm)",def:20}], formula:"V = π/4 × (Do² - Di²) × t × 1.3 (vanes)", vol:d=>1.3*(Math.PI/4)*((d.Do/10)**2-(d.Di/10)**2)*(d.t/10) },
+  "Turbine Disc":        { shape:"Disc with blade roots", dims:[{id:"D",label:"Disc Dia (mm)",def:400},{id:"d",label:"Bore (mm)",def:80},{id:"t",label:"Thickness (mm)",def:60}], formula:"V = π/4 × (D² - d²) × t × 1.15", vol:d=>1.15*(Math.PI/4)*((d.D/10)**2-(d.d/10)**2)*(d.t/10) },
+  "Centrifuge Disc":     { shape:"Flat disc", dims:[{id:"D",label:"OD (mm)",def:500},{id:"d",label:"Bore (mm)",def:60},{id:"t",label:"Thickness (mm)",def:15}], formula:"V = π/4 × (D² - d²) × t", vol:d=>(Math.PI/4)*((d.D/10)**2-(d.d/10)**2)*(d.t/10) },
+  "Pressing Die Disc":   { shape:"Solid disc", dims:[{id:"D",label:"Dia (mm)",def:250},{id:"t",label:"Thickness (mm)",def:40}], formula:"V = π/4 × D² × t", vol:d=>(Math.PI/4*(d.D/10)**2*(d.t/10)) },
+
+  // STRUCTURAL
+  "Angle Bracket":       { shape:"L-shape", dims:[{id:"L",label:"Leg Length (mm)",def:100},{id:"W",label:"Width (mm)",def:60},{id:"t",label:"Thickness (mm)",def:10}], formula:"V = 2×L×W×t − corner", vol:d=>2*(d.L/10)*(d.W/10)*(d.t/10)-(d.t/10)**2*(d.W/10) },
+  "Machine Bed Frame":   { shape:"Hollow box", dims:[{id:"L",label:"Length (mm)",def:1000},{id:"W",label:"Width (mm)",def:400},{id:"H",label:"Height (mm)",def:200},{id:"t",label:"Wall (mm)",def:20}], formula:"V = outer − inner", vol:d=>(d.L/10)*(d.W/10)*(d.H/10)-(((d.L-2*d.t)/10)*((d.W-2*d.t)/10)*((d.H-d.t)/10)) },
+  "Motor Mount Base":    { shape:"Flat plate with bosses", dims:[{id:"L",label:"Length (mm)",def:250},{id:"W",label:"Width (mm)",def:180},{id:"t",label:"Thickness (mm)",def:20}], formula:"V = L×W×t×0.85", vol:d=>0.85*(d.L/10)*(d.W/10)*(d.t/10) },
+  "Column Base Plate":   { shape:"Solid plate", dims:[{id:"L",label:"Length (mm)",def:300},{id:"W",label:"Width (mm)",def:300},{id:"t",label:"Thickness (mm)",def:30}], formula:"V = L×W×t", vol:d=>(d.L/10)*(d.W/10)*(d.t/10) },
+  "Equipment Foot":      { shape:"Pad with boss", dims:[{id:"D",label:"Pad Dia (mm)",def:100},{id:"H",label:"Height (mm)",def:60},{id:"d_boss",label:"Boss Dia (mm)",def:40}], formula:"V = π/4×D²×H×0.6", vol:d=>0.6*(Math.PI/4*(d.D/10)**2*(d.H/10)) },
+  "Gearbox Housing":     { shape:"Box with bore", dims:[{id:"L",label:"Length (mm)",def:400},{id:"W",label:"Width (mm)",def:250},{id:"H",label:"Height (mm)",def:200},{id:"t",label:"Wall (mm)",def:15}], formula:"V = outer − inner (hollow box)", vol:d=>(d.L/10)*(d.W/10)*(d.H/10)-(((d.L-2*d.t)/10)*((d.W-2*d.t)/10)*((d.H-d.t)/10)) },
+  "Differential Case":   { shape:"Spherical shell", dims:[{id:"D",label:"OD (mm)",def:250},{id:"t",label:"Wall (mm)",def:15}], formula:"V = 4/3π × (R³ - r³)", vol:d=>{const R=d.D/20,r=R-d.t/10;return(4/3)*Math.PI*(R**3-r**3);} },
+  "Axle Housing":        { shape:"Hollow cylinder + flanges", dims:[{id:"Do",label:"OD (mm)",def:120},{id:"Di",label:"ID (mm)",def:90},{id:"L",label:"Length (mm)",def:800}], formula:"V = π/4 × (Do² - Di²) × L", vol:d=>(Math.PI/4)*((d.Do/10)**2-(d.Di/10)**2)*(d.L/10) },
+  "Bell Housing":        { shape:"Hollow cone frustum", dims:[{id:"D_large",label:"Large End OD (mm)",def:350},{id:"D_small",label:"Small End OD (mm)",def:180},{id:"H",label:"Height (mm)",def:150},{id:"t",label:"Wall (mm)",def:10}], formula:"V ≈ frustum shell", vol:d=>{const RL=d.D_large/20,RS=d.D_small/20,H=d.H/10,t=d.t/10;return Math.PI/3*H*((RL**2+RL*RS+RS**2)-((RL-t)**2+(RL-t)*(RS-t)+(RS-t)**2));} },
+
+  // COUPLINGS
+  "Rigid Coupling Hub":  { shape:"Cylinder with bore & flange", dims:[{id:"D_fl",label:"Flange Dia (mm)",def:120},{id:"d_bore",label:"Bore (mm)",def:40},{id:"H",label:"Hub Length (mm)",def:80}], formula:"V = π/4 × (D_fl² - d²) × H × 0.7", vol:d=>0.7*(Math.PI/4)*((d.D_fl/10)**2-(d.d_bore/10)**2)*(d.H/10) },
+  "Jaw Coupling Half":   { shape:"Cylinder + jaws", dims:[{id:"D",label:"OD (mm)",def:100},{id:"d",label:"Bore (mm)",def:32},{id:"H",label:"Length (mm)",def:70}], formula:"V = π/4 × (D² - d²) × H × 0.75", vol:d=>0.75*(Math.PI/4)*((d.D/10)**2-(d.d/10)**2)*(d.H/10) },
+  "Universal Joint Spider":{ shape:"Cross (4 arms)", dims:[{id:"d_arm",label:"Arm Dia (mm)",def:25},{id:"L_arm",label:"Arm Length (mm)",def:40}], formula:"V = 4 × π/4 × d² × L − overlaps", vol:d=>4*(Math.PI/4*(d.d_arm/10)**2*(d.L_arm/10))-3*(Math.PI/4*(d.d_arm/10)**2*(d.d_arm/10)) },
+  "Clutch Plate":        { shape:"Flat ring", dims:[{id:"Do",label:"OD (mm)",def:300},{id:"Di",label:"ID (mm)",def:150},{id:"t",label:"Thickness (mm)",def:15}], formula:"V = π/4 × (Do² - Di²) × t", vol:d=>(Math.PI/4)*((d.Do/10)**2-(d.Di/10)**2)*(d.t/10) },
+  "Clutch Housing":      { shape:"Bell housing", dims:[{id:"D",label:"OD (mm)",def:350},{id:"t",label:"Wall (mm)",def:12},{id:"H",label:"Height (mm)",def:200}], formula:"V = π/4 × (D² - Di²) × H", vol:d=>(Math.PI/4)*((d.D/10)**2-((d.D-2*d.t)/10)**2)*(d.H/10) },
+  "Gear Coupling Hub":   { shape:"Cylinder with external teeth", dims:[{id:"D",label:"OD (mm)",def:120},{id:"d",label:"Bore (mm)",def:50},{id:"H",label:"Length (mm)",def:90}], formula:"V = π/4 × (D² - d²) × H", vol:d=>(Math.PI/4)*((d.D/10)**2-(d.d/10)**2)*(d.H/10) },
+
+  // HOUSINGS
+  "Motor End Bell":      { shape:"Disc + bearing boss", dims:[{id:"D",label:"OD (mm)",def:250},{id:"t",label:"Wall Thick (mm)",def:12},{id:"d_boss",label:"Boss Dia (mm)",def:80},{id:"H_boss",label:"Boss Height (mm)",def:40}], formula:"V = disc shell + boss cylinder", vol:d=>{const D=d.D/10,t=d.t/10,db=d.d_boss/10,Hb=d.H_boss/10;return Math.PI/4*(D**2-(D-2*t)**2)*t+Math.PI/4*db**2*Hb;} },
+  "Motor Frame":         { shape:"Hollow cylinder", dims:[{id:"Do",label:"OD (mm)",def:280},{id:"Di",label:"ID (mm)",def:240},{id:"L",label:"Length (mm)",def:350}], formula:"V = π/4 × (Do² - Di²) × L", vol:d=>(Math.PI/4)*((d.Do/10)**2-(d.Di/10)**2)*(d.L/10) },
+  "Alternator Housing":  { shape:"Hollow cylinder", dims:[{id:"Do",label:"OD (mm)",def:200},{id:"Di",label:"ID (mm)",def:170},{id:"L",label:"Length (mm)",def:220}], formula:"V = π/4 × (Do² - Di²) × L", vol:d=>(Math.PI/4)*((d.Do/10)**2-(d.Di/10)**2)*(d.L/10) },
+  "Reducer Housing":     { shape:"Box housing", dims:[{id:"L",label:"Length (mm)",def:350},{id:"W",label:"Width (mm)",def:200},{id:"H",label:"Height (mm)",def:200},{id:"t",label:"Wall (mm)",def:14}], formula:"V = outer − inner", vol:d=>(d.L/10)*(d.W/10)*(d.H/10)-(((d.L-2*d.t)/10)*((d.W-2*d.t)/10)*((d.H-d.t)/10)) },
+  "Hydraulic Tank Body": { shape:"Box tank", dims:[{id:"L",label:"Length (mm)",def:600},{id:"W",label:"Width (mm)",def:300},{id:"H",label:"Height (mm)",def:400},{id:"t",label:"Wall (mm)",def:8}], formula:"V = shell volume (outer-inner)", vol:d=>(d.L/10)*(d.W/10)*(d.H/10)-(((d.L-2*d.t)/10)*((d.W-2*d.t)/10)*((d.H-d.t)/10)) },
+  "Filter Housing":      { shape:"Hollow cylinder", dims:[{id:"Do",label:"OD (mm)",def:120},{id:"Di",label:"ID (mm)",def:100},{id:"L",label:"Length (mm)",def:200}], formula:"V = π/4 × (Do² - Di²) × L", vol:d=>(Math.PI/4)*((d.Do/10)**2-(d.Di/10)**2)*(d.L/10) },
+  "Strainer Body":       { shape:"Hollow cylinder + cone", dims:[{id:"D",label:"Body Dia (mm)",def:100},{id:"t",label:"Wall (mm)",def:8},{id:"L",label:"Length (mm)",def:150}], formula:"V = π/4 × (D² - Di²) × L", vol:d=>(Math.PI/4)*((d.D/10)**2-((d.D-2*d.t)/10)**2)*(d.L/10) },
+
+  // FASTENERS & LINKAGES (simplified)
+  "Pipe Clamp Body":     { shape:"Two semicircular bands", dims:[{id:"D_pipe",label:"Pipe Dia (mm)",def:80},{id:"W",label:"Band Width (mm)",def:30},{id:"t",label:"Thickness (mm)",def:8}], formula:"V = 2 × π × (D/2+t/2) × W × t", vol:d=>2*Math.PI*(d.D_pipe/20+d.t/20)*(d.W/10)*(d.t/10) },
+  "Bell Crank Lever":    { shape:"L-shaped bar", dims:[{id:"L1",label:"Arm 1 Length (mm)",def:150},{id:"L2",label:"Arm 2 Length (mm)",def:120},{id:"W",label:"Width (mm)",def:30},{id:"t",label:"Thickness (mm)",def:18}], formula:"V = (L1 + L2) × W × t × 0.7", vol:d=>0.7*((d.L1+d.L2)/10)*(d.W/10)*(d.t/10) },
+  "Rocker Lever Arm":    { shape:"Curved bar", dims:[{id:"L",label:"Length (mm)",def:120},{id:"W",label:"Width (mm)",def:25},{id:"t",label:"Thickness (mm)",def:16}], formula:"V = L × W × t × 0.65", vol:d=>0.65*(d.L/10)*(d.W/10)*(d.t/10) },
+  "Hand Lever":          { shape:"Bar with boss", dims:[{id:"L",label:"Length (mm)",def:200},{id:"W",label:"Width (mm)",def:20},{id:"t",label:"Thickness (mm)",def:15}], formula:"V = L × W × t × 0.85", vol:d=>0.85*(d.L/10)*(d.W/10)*(d.t/10) },
+  "Crane Hook":          { shape:"Curved bar + shank", dims:[{id:"D",label:"Shank Dia (mm)",def:40},{id:"H",label:"Hook Height (mm)",def:150},{id:"W",label:"Hook Width (mm)",def:60}], formula:"V = shank + curved portion", vol:d=>(Math.PI/4*(d.D/10)**2*(d.H/10*0.4))+0.4*(d.H/10*0.6)*(d.W/10)*(d.D/10) },
+
+  // AUTOMOTIVE
+  "Turbocharger Housing":{ shape:"Volute shell", dims:[{id:"D",label:"Housing Dia (mm)",def:160},{id:"d",label:"Inlet Dia (mm)",def:50},{id:"W",label:"Width (mm)",def:80}], formula:"V = π/4×D²×W×0.3", vol:d=>0.3*(Math.PI/4*(d.D/10)**2*(d.W/10)) },
+  "Wheel Hub":           { shape:"Hollow cylinder + flange", dims:[{id:"D_fl",label:"Flange Dia (mm)",def:180},{id:"D_hub",label:"Hub Dia (mm)",def:90},{id:"d_bore",label:"Bore (mm)",def:35},{id:"H",label:"Hub Length (mm)",def:80},{id:"t_fl",label:"Flange Thick (mm)",def:20}], formula:"V = flange + hub cylinder", vol:d=>(Math.PI/4)*((d.D_fl/10)**2-(d.D_hub/10)**2)*(d.t_fl/10)+(Math.PI/4)*((d.D_hub/10)**2-(d.d_bore/10)**2)*(d.H/10) },
+  "Transmission Case":   { shape:"Box housing", dims:[{id:"L",label:"Length (mm)",def:500},{id:"W",label:"Width (mm)",def:300},{id:"H",label:"Height (mm)",def:250},{id:"t",label:"Wall (mm)",def:12}], formula:"V = outer − inner", vol:d=>(d.L/10)*(d.W/10)*(d.H/10)-(((d.L-2*d.t)/10)*((d.W-2*d.t)/10)*((d.H-d.t)/10)) },
+  "Differential Carrier":{ shape:"Bowl housing", dims:[{id:"D",label:"OD (mm)",def:280},{id:"t",label:"Wall (mm)",def:14},{id:"H",label:"Height (mm)",def:180}], formula:"V = π/4 × (D² - Di²) × H × 0.55", vol:d=>0.55*(Math.PI/4)*((d.D/10)**2-((d.D-2*d.t)/10)**2)*(d.H/10) },
+  "Caliper Body":        { shape:"C-shaped block", dims:[{id:"L",label:"Length (mm)",def:180},{id:"W",label:"Width (mm)",def:80},{id:"H",label:"Height (mm)",def:120},{id:"d_piston",label:"Piston Bore Dia (mm)",def:48}], formula:"V = L×W×H×0.35 − piston bore", vol:d=>0.35*(d.L/10)*(d.W/10)*(d.H/10)-(Math.PI/4*(d.d_piston/10)**2*(d.W/10)) },
+
+  // RAILWAY
+  "Rail Wheel":          { shape:"Disc wheel + tread + flange", dims:[{id:"D",label:"Wheel Dia (mm)",def:920},{id:"d",label:"Bore (mm)",def:150},{id:"t_rim",label:"Rim Width (mm)",def:135},{id:"t_disc",label:"Disc Thick (mm)",def:30}], formula:"V = rim torus + disc ring", vol:d=>{const R=d.D/20,r=R-d.t_rim/10,bore=d.d/20,W=d.t_disc/10;return 2*Math.PI**2*r*(d.t_rim/20)**2+(Math.PI/4*((d.D-2*d.t_rim)/10+2*W)**2-Math.PI/4*(d.d/10)**2)*W;} },
+  "Brake Block":         { shape:"Curved block", dims:[{id:"L",label:"Length (mm)",def:250},{id:"W",label:"Width (mm)",def:100},{id:"H",label:"Height (mm)",def:60}], formula:"V = L×W×H×0.75", vol:d=>0.75*(d.L/10)*(d.W/10)*(d.H/10) },
+  "Bogie Frame":         { shape:"H-frame", dims:[{id:"L",label:"Length (mm)",def:2000},{id:"W",label:"Width (mm)",def:800},{id:"H",label:"Height (mm)",def:200},{id:"t",label:"Wall (mm)",def:20}], formula:"V ≈ 2×side beams + 2×cross beams", vol:d=>2*(d.L/10)*(d.t/10)*(d.H/10)+2*(d.W/10)*(d.t/10)*(d.H/10) },
+
+  // MARINE
+  "Ship Propeller":      { shape:"Hub + blades", dims:[{id:"D",label:"Propeller Dia (mm)",def:3000},{id:"d_hub",label:"Hub Dia (mm)",def:500},{id:"L_hub",label:"Hub Length (mm)",def:600},{id:"n_blades",label:"No. of Blades",def:4},{id:"t_blade",label:"Blade Avg Thick (mm)",def:30}], formula:"V = hub cylinder + n×blade approx", vol:d=>{const hub=Math.PI/4*(d.d_hub/10)**2*(d.L_hub/10);const blade_area=0.4*Math.PI*(d.D/20)**2/d.n_blades;return hub+d.n_blades*blade_area*(d.t_blade/10);} },
+  "Anchor":              { shape:"Stock + arms + ring", dims:[{id:"L",label:"Anchor Length (mm)",def:2000},{id:"W",label:"Arm Span (mm)",def:1200},{id:"d",label:"Stock Dia (mm)",def:80}], formula:"V ≈ stock + 2×arms + shackle", vol:d=>1.5*(Math.PI/4*(d.d/10)**2*(d.L/10)) },
+
+  // CONSTRUCTION
+  "Excavator Bucket Tooth":{ shape:"Tapered block", dims:[{id:"L",label:"Length (mm)",def:250},{id:"W_base",label:"Base Width (mm)",def:80},{id:"W_tip",label:"Tip Width (mm)",def:30},{id:"H",label:"Height (mm)",def:70}], formula:"V = L × H × (W_base + W_tip)/2", vol:d=>(d.L/10)*(d.H/10)*(d.W_base+d.W_tip)/20 },
+  "Counterweight Block": { shape:"Rectangular block", dims:[{id:"L",label:"Length (mm)",def:800},{id:"W",label:"Width (mm)",def:400},{id:"H",label:"Height (mm)",def:300}], formula:"V = L × W × H", vol:d=>(d.L/10)*(d.W/10)*(d.H/10) },
+  "Track Link":          { shape:"Hollow link", dims:[{id:"L",label:"Length (mm)",def:200},{id:"W",label:"Width (mm)",def:80},{id:"H",label:"Height (mm)",def:50},{id:"d_pin",label:"Pin Bore Dia (mm)",def:30}], formula:"V = L×W×H×0.55 − 2 pin bores", vol:d=>0.55*(d.L/10)*(d.W/10)*(d.H/10)-(2*Math.PI/4*(d.d_pin/10)**2*(d.W/10)) },
+
+  // MINING
+  "Crusher Jaw Plate":   { shape:"Curved plate", dims:[{id:"L",label:"Length (mm)",def:900},{id:"W",label:"Width (mm)",def:400},{id:"t",label:"Thickness (mm)",def:100}], formula:"V = L×W×t×0.85", vol:d=>0.85*(d.L/10)*(d.W/10)*(d.t/10) },
+  "Cone Crusher Mantle": { shape:"Hollow cone", dims:[{id:"D_top",label:"Top OD (mm)",def:800},{id:"D_bot",label:"Bottom OD (mm)",def:1200},{id:"H",label:"Height (mm)",def:600},{id:"t",label:"Wall (mm)",def:80}], formula:"V = outer cone − inner cone", vol:d=>{const Ro=d.D_bot/20,ro=d.D_top/20,H=d.H/10,t=d.t/10;return Math.PI/3*H*(Ro**2+Ro*ro+ro**2)-Math.PI/3*H*((Ro-t)**2+(Ro-t)*(ro-t)+(ro-t)**2);} },
+  "Mill Trunnion":       { shape:"Hollow cylinder with flange", dims:[{id:"D_fl",label:"Flange Dia (mm)",def:600},{id:"D_bore",label:"Bore (mm)",def:400},{id:"L",label:"Length (mm)",def:500}], formula:"V = π/4 × (D_fl² - D_bore²) × L", vol:d=>(Math.PI/4)*((d.D_fl/10)**2-(d.D_bore/10)**2)*(d.L/10) },
+
+  // SANITARY
+  "Manhole Cover":       { shape:"Solid disc or square", dims:[{id:"D",label:"Diameter (mm)",def:600},{id:"t",label:"Thickness (mm)",def:50}], formula:"V = π/4 × D² × t", vol:d=>(Math.PI/4*(d.D/10)**2*(d.t/10)) },
+  "Drain Grating":       { shape:"Plate with holes", dims:[{id:"L",label:"Length (mm)",def:300},{id:"W",label:"Width (mm)",def:300},{id:"t",label:"Thickness (mm)",def:20}], formula:"V = L×W×t×0.55 (open area factor)", vol:d=>0.55*(d.L/10)*(d.W/10)*(d.t/10) },
+  "Fire Hydrant Body":   { shape:"Cylinder with ports", dims:[{id:"D",label:"Body Dia (mm)",def:200},{id:"t",label:"Wall (mm)",def:18},{id:"H",label:"Height (mm)",def:400}], formula:"V = π/4 × (D² - Di²) × H", vol:d=>(Math.PI/4)*((d.D/10)**2-((d.D-2*d.t)/10)**2)*(d.H/10) },
+
+  // INDUSTRIAL MACHINE TOOLS
+  "Lathe Headstock":     { shape:"Complex box housing", dims:[{id:"L",label:"Length (mm)",def:400},{id:"W",label:"Width (mm)",def:250},{id:"H",label:"Height (mm)",def:300},{id:"t",label:"Wall (mm)",def:20}], formula:"V = outer − inner × 0.5", vol:d=>0.5*((d.L/10)*(d.W/10)*(d.H/10)-(((d.L-2*d.t)/10)*((d.W-2*d.t)/10)*((d.H-d.t)/10))) },
+  "Machine Tool Bed":    { shape:"Ribbed box", dims:[{id:"L",label:"Length (mm)",def:2000},{id:"W",label:"Width (mm)",def:500},{id:"H",label:"Height (mm)",def:300},{id:"t",label:"Wall (mm)",def:25}], formula:"V ≈ shell + ribs × 0.4", vol:d=>0.4*(d.L/10)*(d.W/10)*(d.H/10) },
+  "Vice Body":           { shape:"Box with jaw slot", dims:[{id:"L",label:"Length (mm)",def:250},{id:"W",label:"Width (mm)",def:150},{id:"H",label:"Height (mm)",def:120}], formula:"V = L×W×H × 0.6", vol:d=>0.6*(d.L/10)*(d.W/10)*(d.H/10) },
+  "Anvil":               { shape:"Tapered block + horn", dims:[{id:"L",label:"Total Length (mm)",def:500},{id:"W",label:"Width (mm)",def:150},{id:"H",label:"Height (mm)",def:250}], formula:"V = L×W×H × 0.70", vol:d=>0.70*(d.L/10)*(d.W/10)*(d.H/10) },
+  "Surface Plate":       { shape:"Solid slab", dims:[{id:"L",label:"Length (mm)",def:600},{id:"W",label:"Width (mm)",def:400},{id:"t",label:"Thickness (mm)",def:80}], formula:"V = L×W×t", vol:d=>(d.L/10)*(d.W/10)*(d.t/10) },
+  "V-Block":             { shape:"Block with V-groove", dims:[{id:"L",label:"Length (mm)",def:100},{id:"W",label:"Width (mm)",def:75},{id:"H",label:"Height (mm)",def:75}], formula:"V = L×W×H×0.85 (groove factor)", vol:d=>0.85*(d.L/10)*(d.W/10)*(d.H/10) },
+
+  // FOOD PROCESSING
+  "Mixer Paddle":        { shape:"Bar + disc", dims:[{id:"L",label:"Paddle Length (mm)",def:300},{id:"W",label:"Blade Width (mm)",def:80},{id:"t",label:"Thickness (mm)",def:12}], formula:"V = L×W×t×0.75", vol:d=>0.75*(d.L/10)*(d.W/10)*(d.t/10) },
+  "Sugar Centrifuge Basket":{ shape:"Hollow cylinder perforated", dims:[{id:"Do",label:"OD (mm)",def:1200},{id:"Di",label:"ID (mm)",def:1150},{id:"H",label:"Height (mm)",def:900}], formula:"V = π/4 × (Do² - Di²) × H × 0.7", vol:d=>0.7*(Math.PI/4)*((d.Do/10)**2-(d.Di/10)**2)*(d.H/10) },
+  "Press Screw":         { shape:"Screw (cylinder + helix)", dims:[{id:"D_root",label:"Root Dia (mm)",def:80},{id:"L",label:"Length (mm)",def:500}], formula:"V = π/4 × D_root² × L × 1.4 (helix factor)", vol:d=>1.4*(Math.PI/4*(d.D_root/10)**2*(d.L/10)) },
+
+  // TEXTILE
+  "Loom Shuttle":        { shape:"Spindle-shaped body", dims:[{id:"L",label:"Length (mm)",def:350},{id:"D",label:"Max Dia (mm)",def:40}], formula:"V = π/4 × D² × L × 0.6 (taper factor)", vol:d=>0.6*(Math.PI/4*(d.D/10)**2*(d.L/10)) },
+
+  // AEROSPACE
+  "Turbine Blade Root":  { shape:"Fir-tree root section", dims:[{id:"L",label:"Root Length (mm)",def:60},{id:"W",label:"Root Width (mm)",def:25},{id:"H",label:"Root Height (mm)",def:35}], formula:"V = L×W×H × 0.65 (profile factor)", vol:d=>0.65*(d.L/10)*(d.W/10)*(d.H/10) },
+  "Compressor Blade":    { shape:"Aerofoil section", dims:[{id:"L",label:"Blade Length (mm)",def:80},{id:"W",label:"Chord (mm)",def:30},{id:"t",label:"Max Thickness (mm)",def:5}], formula:"V = L×W×t×0.75 (aerofoil factor)", vol:d=>0.75*(d.L/10)*(d.W/10)*(d.t/10) },
+
+  // HEATING
+  "Boiler Shell Ring":   { shape:"Hollow cylinder", dims:[{id:"Do",label:"OD (mm)",def:1000},{id:"Di",label:"ID (mm)",def:970},{id:"W",label:"Width (mm)",def:200}], formula:"V = π/4 × (Do² - Di²) × W", vol:d=>(Math.PI/4)*((d.Do/10)**2-(d.Di/10)**2)*(d.W/10) },
+  "Radiator Section":    { shape:"Complex hollow section", dims:[{id:"H",label:"Height (mm)",def:600},{id:"W",label:"Width (mm)",def:80},{id:"t",label:"Wall (mm)",def:8},{id:"n",label:"Channels",def:4}], formula:"V = outer − n×channels × H", vol:d=>(d.H/10)*(d.W/10)*(d.t/10)*2+(d.H/10)*(d.n*d.t/10)*(d.t/10) },
+  "Furnace Grate Bar":   { shape:"Tapered bar", dims:[{id:"L",label:"Length (mm)",def:400},{id:"W",label:"Width (mm)",def:50},{id:"H",label:"Height (mm)",def:60}], formula:"V = L×W×H×0.80", vol:d=>0.80*(d.L/10)*(d.W/10)*(d.H/10) },
+
+  // MISC
+  "Hammer Head":         { shape:"Rectangular block with bore", dims:[{id:"L",label:"Length (mm)",def:120},{id:"W",label:"Width (mm)",def:60},{id:"H",label:"Height (mm)",def:55},{id:"d_eye",label:"Eye Dia (mm)",def:22}], formula:"V = L×W×H − eye bore", vol:d=>(d.L/10)*(d.W/10)*(d.H/10)-(Math.PI/4*(d.d_eye/10)**2*(d.W/10)) },
+  "Ingot Mold":          { shape:"Tapered box (open top)", dims:[{id:"L_bot",label:"Bottom Length (mm)",def:300},{id:"W_bot",label:"Bottom Width (mm)",def:200},{id:"L_top",label:"Top Length (mm)",def:350},{id:"W_top",label:"Top Width (mm)",def:240},{id:"H",label:"Height (mm)",def:400},{id:"t",label:"Wall (mm)",def:20}], formula:"V = frustum shell", vol:d=>{const Ao=(d.L_top/10)*(d.W_top/10),Ai=(d.L_bot/10)*(d.W_bot/10),H=d.H/10,t=d.t/10,Aoi=((d.L_top-2*t)/10)*((d.W_top-2*t)/10),Aii=((d.L_bot-2*t)/10)*((d.W_bot-2*t)/10);return H/3*(Ao+Math.sqrt(Ao*Ai)+Ai)-H/3*(Aoi+Math.sqrt(Aoi*Aii)+Aii);} },
+};
+
+// ── DEFAULT GEOMETRY for any part not in the above list
+function getPartGeometry(partName) {
+  if (PART_GEOMETRIES[partName]) return PART_GEOMETRIES[partName];
+  // Infer from part name keywords
+  const n = partName.toLowerCase();
+  if (n.includes('disc') || n.includes('plate') || n.includes('cover') || n.includes('cap'))
+    return { shape:"Flat Disc", dims:[{id:"D",label:"Diameter (mm)",def:150},{id:"t",label:"Thickness (mm)",def:20},{id:"d",label:"Bore Dia (mm)",def:0}], formula:"V = π/4 × (D² - d²) × t", vol:d=>(Math.PI/4)*((d.D/10)**2-Math.max(0,(d.d/10))**2)*(d.t/10) };
+  if (n.includes('shaft') || n.includes('rod') || n.includes('pin') || n.includes('bar'))
+    return { shape:"Solid Cylinder", dims:[{id:"D",label:"Diameter (mm)",def:50},{id:"L",label:"Length (mm)",def:200}], formula:"V = π/4 × D² × L", vol:d=>(Math.PI/4*(d.D/10)**2*(d.L/10)) };
+  if (n.includes('ring') || n.includes('sleeve') || n.includes('liner') || n.includes('tube'))
+    return { shape:"Hollow Cylinder", dims:[{id:"Do",label:"OD (mm)",def:100},{id:"Di",label:"ID (mm)",def:70},{id:"L",label:"Length (mm)",def:100}], formula:"V = π/4 × (Do² - Di²) × L", vol:d=>(Math.PI/4)*((d.Do/10)**2-(d.Di/10)**2)*(d.L/10) };
+  if (n.includes('housing') || n.includes('body') || n.includes('case') || n.includes('block') || n.includes('frame'))
+    return { shape:"Box Housing", dims:[{id:"L",label:"Length (mm)",def:200},{id:"W",label:"Width (mm)",def:150},{id:"H",label:"Height (mm)",def:120},{id:"t",label:"Wall (mm)",def:12}], formula:"V = outer − inner (shell estimate)", vol:d=>(d.L/10)*(d.W/10)*(d.H/10)-(((d.L-2*d.t)/10)*((d.W-2*d.t)/10)*((d.H-d.t)/10)) };
+  if (n.includes('wheel') || n.includes('drum') || n.includes('pulley'))
+    return { shape:"Cylinder (hollow)", dims:[{id:"Do",label:"OD (mm)",def:200},{id:"Di",label:"ID (mm)",def:120},{id:"W",label:"Width (mm)",def:60}], formula:"V = π/4 × (Do² - Di²) × W", vol:d=>(Math.PI/4)*((d.Do/10)**2-(d.Di/10)**2)*(d.W/10) };
+  if (n.includes('gear'))
+    return { shape:"Gear Cylinder", dims:[{id:"D",label:"PCD (mm)",def:100},{id:"d",label:"Bore (mm)",def:25},{id:"W",label:"Width (mm)",def:30}], formula:"V = π/4 × (D² - d²) × W", vol:d=>(Math.PI/4)*((d.D/10)**2-(d.d/10)**2)*(d.W/10) };
+  // Generic fallback
+  return { shape:"Solid Block (estimate)", dims:[{id:"L",label:"Length (mm)",def:150},{id:"W",label:"Width (mm)",def:100},{id:"H",label:"Height (mm)",def:80}], formula:"V = L × W × H × 0.7 (fill factor)", vol:d=>0.7*(d.L/10)*(d.W/10)*(d.H/10) };
+}
+
+// ══════════════════════════════════════════════
+// PARTS DATABASE
+// ══════════════════════════════════════════════
+const PARTS_DATABASE = [
+  {name:"Spur Gear",cat:"Gears",pattern:"Two Piece",icon:"⚙"},{name:"Helical Gear",cat:"Gears",pattern:"Two Piece",icon:"⚙"},
+  {name:"Bevel Gear",cat:"Gears",pattern:"Cope and Drag",icon:"⚙"},{name:"Worm Gear",cat:"Gears",pattern:"Single Piece",icon:"⚙"},
+  {name:"Worm Wheel",cat:"Gears",pattern:"Two Piece",icon:"⚙"},{name:"Rack and Pinion",cat:"Gears",pattern:"Single Piece",icon:"⚙"},
+  {name:"Internal Ring Gear",cat:"Gears",pattern:"Sweep",icon:"⚙"},{name:"Planetary Gear Set",cat:"Gears",pattern:"Two Piece",icon:"⚙"},
+  {name:"Crown Gear",cat:"Gears",pattern:"Cope and Drag",icon:"⚙"},{name:"Hypoid Gear",cat:"Gears",pattern:"Match Plate",icon:"⚙"},
+  {name:"Double Helical Gear",cat:"Gears",pattern:"Gated",icon:"⚙"},{name:"Spiral Bevel Gear",cat:"Gears",pattern:"Cope and Drag",icon:"⚙"},
+  {name:"Zerol Bevel Gear",cat:"Gears",pattern:"Match Plate",icon:"⚙"},{name:"Mitre Gear",cat:"Gears",pattern:"Two Piece",icon:"⚙"},
+  {name:"Face Gear",cat:"Gears",pattern:"Single Piece",icon:"⚙"},{name:"Cluster Gear",cat:"Gears",pattern:"Two Piece",icon:"⚙"},
+  {name:"Idler Gear",cat:"Gears",pattern:"Single Piece",icon:"⚙"},{name:"Compound Gear",cat:"Gears",pattern:"Cope and Drag",icon:"⚙"},
+  {name:"Sector Gear",cat:"Gears",pattern:"Match Plate",icon:"⚙"},{name:"Differential Ring Gear",cat:"Gears",pattern:"Two Piece",icon:"⚙"},
+  {name:"Sun Gear",cat:"Gears",pattern:"Single Piece",icon:"⚙"},{name:"Drive Pinion",cat:"Gears",pattern:"Single Piece",icon:"⚙"},
+  {name:"Transfer Gear",cat:"Gears",pattern:"Gated",icon:"⚙"},{name:"Timing Gear",cat:"Gears",pattern:"Two Piece",icon:"⚙"},
+  {name:"Noncircular Gear",cat:"Gears",pattern:"Single Piece",icon:"⚙"},
+  {name:"Ball Bearing Housing",cat:"Bearings",pattern:"Two Piece",icon:"🔘"},{name:"Roller Bearing Ring",cat:"Bearings",pattern:"Sweep",icon:"🔘"},
+  {name:"Tapered Roller Cone",cat:"Bearings",pattern:"Two Piece",icon:"🔘"},{name:"Bearing Pedestal",cat:"Bearings",pattern:"Cope and Drag",icon:"🔘"},
+  {name:"Plummer Block",cat:"Bearings",pattern:"Two Piece",icon:"🔘"},{name:"Flanged Bearing",cat:"Bearings",pattern:"Match Plate",icon:"🔘"},
+  {name:"Thrust Bearing Seat",cat:"Bearings",pattern:"Single Piece",icon:"🔘"},{name:"Bearing Cap",cat:"Bearings",pattern:"Cope and Drag",icon:"🔘"},
+  {name:"Needle Roller Housing",cat:"Bearings",pattern:"Two Piece",icon:"🔘"},{name:"Self-Aligning Race",cat:"Bearings",pattern:"Sweep",icon:"🔘"},
+  {name:"Journal Bearing Shell",cat:"Bearings",pattern:"Single Piece",icon:"🔘"},{name:"Sleeve Bearing",cat:"Bearings",pattern:"Single Piece",icon:"🔘"},
+  {name:"Pivot Bearing",cat:"Bearings",pattern:"Match Plate",icon:"🔘"},{name:"Eccentric Bearing",cat:"Bearings",pattern:"Two Piece",icon:"🔘"},
+  {name:"Slide Bearing Block",cat:"Bearings",pattern:"Cope and Drag",icon:"🔘"},
+  {name:"V-Belt Pulley",cat:"Pulleys",pattern:"Two Piece",icon:"🌀"},{name:"Flat Belt Pulley",cat:"Pulleys",pattern:"Two Piece",icon:"🌀"},
+  {name:"Timing Belt Pulley",cat:"Pulleys",pattern:"Single Piece",icon:"🌀"},{name:"Chain Sprocket",cat:"Pulleys",pattern:"Two Piece",icon:"🌀"},
+  {name:"Rope Pulley",cat:"Pulleys",pattern:"Sweep",icon:"🌀"},{name:"Jockey Pulley",cat:"Pulleys",pattern:"Two Piece",icon:"🌀"},
+  {name:"Tensioner Pulley",cat:"Pulleys",pattern:"Match Plate",icon:"🌀"},{name:"Stepped Pulley",cat:"Pulleys",pattern:"Two Piece",icon:"🌀"},
+  {name:"Variable Speed Pulley",cat:"Pulleys",pattern:"Cope and Drag",icon:"🌀"},{name:"Crane Sheave",cat:"Pulleys",pattern:"Sweep",icon:"🌀"},
+  {name:"Wire Rope Drum",cat:"Pulleys",pattern:"Two Piece",icon:"🌀"},{name:"Drive Sprocket",cat:"Pulleys",pattern:"Single Piece",icon:"🌀"},
+  {name:"Conveyor Sprocket",cat:"Pulleys",pattern:"Two Piece",icon:"🌀"},
+  {name:"Gate Valve Body",cat:"Valves",pattern:"Two Piece",icon:"🔧"},{name:"Globe Valve Body",cat:"Valves",pattern:"Two Piece",icon:"🔧"},
+  {name:"Ball Valve Body",cat:"Valves",pattern:"Two Piece",icon:"🔧"},{name:"Butterfly Valve Disc",cat:"Valves",pattern:"Two Piece",icon:"🔧"},
+  {name:"Check Valve Body",cat:"Valves",pattern:"Single Piece",icon:"🔧"},{name:"Safety Relief Valve",cat:"Valves",pattern:"Two Piece",icon:"🔧"},
+  {name:"Plug Valve Body",cat:"Valves",pattern:"Cope and Drag",icon:"🔧"},{name:"Diaphragm Valve",cat:"Valves",pattern:"Two Piece",icon:"🔧"},
+  {name:"Needle Valve Body",cat:"Valves",pattern:"Single Piece",icon:"🔧"},{name:"Pressure Regulator Body",cat:"Valves",pattern:"Two Piece",icon:"🔧"},
+  {name:"Solenoid Valve Housing",cat:"Valves",pattern:"Match Plate",icon:"🔧"},{name:"Throttle Valve",cat:"Valves",pattern:"Two Piece",icon:"🔧"},
+  {name:"Float Valve",cat:"Valves",pattern:"Single Piece",icon:"🔧"},{name:"Poppet Valve",cat:"Valves",pattern:"Match Plate",icon:"🔧"},
+  {name:"Slide Valve",cat:"Valves",pattern:"Single Piece",icon:"🔧"},
+  {name:"Elbow 90°",cat:"Fittings",pattern:"Single Piece",icon:"🔩"},{name:"Elbow 45°",cat:"Fittings",pattern:"Single Piece",icon:"🔩"},
+  {name:"Tee Junction",cat:"Fittings",pattern:"Single Piece",icon:"🔩"},{name:"Cross Fitting",cat:"Fittings",pattern:"Cope and Drag",icon:"🔩"},
+  {name:"Pipe Reducer",cat:"Fittings",pattern:"Single Piece",icon:"🔩"},{name:"Pipe Cap",cat:"Fittings",pattern:"Match Plate",icon:"🔩"},
+  {name:"Socket Flange",cat:"Fittings",pattern:"Two Piece",icon:"🔩"},{name:"Weld Neck Flange",cat:"Fittings",pattern:"Two Piece",icon:"🔩"},
+  {name:"Blind Flange",cat:"Fittings",pattern:"Single Piece",icon:"🔩"},{name:"Slip-On Flange",cat:"Fittings",pattern:"Match Plate",icon:"🔩"},
+  {name:"Lap Joint Flange",cat:"Fittings",pattern:"Match Plate",icon:"🔩"},{name:"Union Coupling",cat:"Fittings",pattern:"Two Piece",icon:"🔩"},
+  {name:"Street Elbow",cat:"Fittings",pattern:"Single Piece",icon:"🔩"},{name:"Swage Nipple",cat:"Fittings",pattern:"Single Piece",icon:"🔩"},
+  {name:"Y-Branch Fitting",cat:"Fittings",pattern:"Cope and Drag",icon:"🔩"},
+  {name:"Pump Casing",cat:"Pumps",pattern:"Two Piece",icon:"💧"},{name:"Impeller",cat:"Pumps",pattern:"Two Piece",icon:"💧"},
+  {name:"Diffuser Casing",cat:"Pumps",pattern:"Two Piece",icon:"💧"},{name:"Pump Volute",cat:"Pumps",pattern:"Cope and Drag",icon:"💧"},
+  {name:"Hydraulic Cylinder Body",cat:"Pumps",pattern:"Two Piece",icon:"💧"},{name:"Pump Bracket",cat:"Pumps",pattern:"Cope and Drag",icon:"💧"},
+  {name:"Gear Pump Body",cat:"Pumps",pattern:"Two Piece",icon:"💧"},{name:"Piston Pump Housing",cat:"Pumps",pattern:"Cope and Drag",icon:"💧"},
+  {name:"Compressor Housing",cat:"Pumps",pattern:"Two Piece",icon:"💧"},{name:"Turbine Housing",cat:"Pumps",pattern:"Cope and Drag",icon:"💧"},
+  {name:"Vane Pump Ring",cat:"Pumps",pattern:"Single Piece",icon:"💧"},{name:"Suction Manifold",cat:"Pumps",pattern:"Cope and Drag",icon:"💧"},
+  {name:"Engine Block",cat:"Engine",pattern:"Cope and Drag",icon:"🔥"},{name:"Cylinder Head",cat:"Engine",pattern:"Two Piece",icon:"🔥"},
+  {name:"Crankshaft Main",cat:"Engine",pattern:"Cope and Drag",icon:"🔥"},{name:"Camshaft Housing",cat:"Engine",pattern:"Two Piece",icon:"🔥"},
+  {name:"Piston",cat:"Engine",pattern:"Single Piece",icon:"🔥"},{name:"Connecting Rod",cat:"Engine",pattern:"Two Piece",icon:"🔥"},
+  {name:"Flywheel",cat:"Engine",pattern:"Two Piece",icon:"🔥"},{name:"Oil Sump",cat:"Engine",pattern:"Cope and Drag",icon:"🔥"},
+  {name:"Intake Manifold",cat:"Engine",pattern:"Cope and Drag",icon:"🔥"},{name:"Exhaust Manifold",cat:"Engine",pattern:"Two Piece",icon:"🔥"},
+  {name:"Timing Cover",cat:"Engine",pattern:"Single Piece",icon:"🔥"},{name:"Valve Cover",cat:"Engine",pattern:"Single Piece",icon:"🔥"},
+  {name:"Water Pump Housing",cat:"Engine",pattern:"Two Piece",icon:"🔥"},{name:"Oil Pump Body",cat:"Engine",pattern:"Two Piece",icon:"🔥"},
+  {name:"Rocker Arm",cat:"Engine",pattern:"Two Piece",icon:"🔥"},{name:"Tappet Block",cat:"Engine",pattern:"Cope and Drag",icon:"🔥"},
+  {name:"Gudgeon Pin",cat:"Engine",pattern:"Single Piece",icon:"🔥"},{name:"Cylinder Liner",cat:"Engine",pattern:"Centrifugal",icon:"🔥"},
+  {name:"Angle Bracket",cat:"Structural",pattern:"Single Piece",icon:"📐"},{name:"Machine Bed Frame",cat:"Structural",pattern:"Cope and Drag",icon:"📐"},
+  {name:"Motor Mount Base",cat:"Structural",pattern:"Single Piece",icon:"📐"},{name:"Column Base Plate",cat:"Structural",pattern:"Cope and Drag",icon:"📐"},
+  {name:"Equipment Foot",cat:"Structural",pattern:"Single Piece",icon:"📐"},{name:"Pedestal Bracket",cat:"Structural",pattern:"Cope and Drag",icon:"📐"},
+  {name:"Hanger Bracket",cat:"Structural",pattern:"Two Piece",icon:"📐"},{name:"Support Arm",cat:"Structural",pattern:"Two Piece",icon:"📐"},
+  {name:"Gearbox Housing",cat:"Structural",pattern:"Cope and Drag",icon:"📐"},{name:"Differential Case",cat:"Structural",pattern:"Two Piece",icon:"📐"},
+  {name:"Axle Housing",cat:"Structural",pattern:"Cope and Drag",icon:"📐"},{name:"Bell Housing",cat:"Structural",pattern:"Single Piece",icon:"📐"},
+  {name:"Crosshead Guide",cat:"Structural",pattern:"Cope and Drag",icon:"📐"},{name:"Yoke Bracket",cat:"Structural",pattern:"Two Piece",icon:"📐"},
+  {name:"Trunnion Mount",cat:"Structural",pattern:"Two Piece",icon:"📐"},
+  {name:"Rigid Coupling Hub",cat:"Couplings",pattern:"Single Piece",icon:"🔗"},{name:"Flexible Coupling",cat:"Couplings",pattern:"Single Piece",icon:"🔗"},
+  {name:"Jaw Coupling Half",cat:"Couplings",pattern:"Single Piece",icon:"🔗"},{name:"Universal Joint Spider",cat:"Couplings",pattern:"Two Piece",icon:"🔗"},
+  {name:"Disc Coupling",cat:"Couplings",pattern:"Match Plate",icon:"🔗"},{name:"Gear Coupling Hub",cat:"Couplings",pattern:"Single Piece",icon:"🔗"},
+  {name:"Clutch Plate",cat:"Couplings",pattern:"Match Plate",icon:"🔗"},{name:"Clutch Housing",cat:"Couplings",pattern:"Two Piece",icon:"🔗"},
+  {name:"Diaphragm Coupling",cat:"Couplings",pattern:"Single Piece",icon:"🔗"},{name:"Torsional Damper Hub",cat:"Couplings",pattern:"Two Piece",icon:"🔗"},
+  {name:"Slip Coupling Sleeve",cat:"Couplings",pattern:"Single Piece",icon:"🔗"},{name:"Oldham Coupling Disc",cat:"Couplings",pattern:"Match Plate",icon:"🔗"},
+  {name:"Motor End Bell",cat:"Housings",pattern:"Single Piece",icon:"📦"},{name:"Motor Frame",cat:"Housings",pattern:"Two Piece",icon:"📦"},
+  {name:"Alternator Housing",cat:"Housings",pattern:"Two Piece",icon:"📦"},{name:"Starter Motor Housing",cat:"Housings",pattern:"Single Piece",icon:"📦"},
+  {name:"Gearbox End Cover",cat:"Housings",pattern:"Single Piece",icon:"📦"},{name:"Bearing Housing Block",cat:"Housings",pattern:"Cope and Drag",icon:"📦"},
+  {name:"Gear Cover Plate",cat:"Housings",pattern:"Match Plate",icon:"📦"},{name:"Chain Guard Housing",cat:"Housings",pattern:"Single Piece",icon:"📦"},
+  {name:"Drive End Shield",cat:"Housings",pattern:"Single Piece",icon:"📦"},{name:"Reducer Housing",cat:"Housings",pattern:"Cope and Drag",icon:"📦"},
+  {name:"Hydraulic Tank Body",cat:"Housings",pattern:"Two Piece",icon:"📦"},{name:"Filter Housing",cat:"Housings",pattern:"Two Piece",icon:"📦"},
+  {name:"Strainer Body",cat:"Housings",pattern:"Single Piece",icon:"📦"},
+  {name:"Handwheel",cat:"Wheels",pattern:"Single Piece",icon:"⭕"},{name:"Spoked Wheel",cat:"Wheels",pattern:"Two Piece",icon:"⭕"},
+  {name:"Disc Brake Rotor",cat:"Wheels",pattern:"Two Piece",icon:"⭕"},{name:"Brake Drum",cat:"Wheels",pattern:"Two Piece",icon:"⭕"},
+  {name:"Flywheel Disc",cat:"Wheels",pattern:"Two Piece",icon:"⭕"},{name:"Grinding Wheel Hub",cat:"Wheels",pattern:"Match Plate",icon:"⭕"},
+  {name:"Gear Wheel Blank",cat:"Wheels",pattern:"Two Piece",icon:"⭕"},{name:"Rope Sheave",cat:"Wheels",pattern:"Sweep",icon:"⭕"},
+  {name:"Impeller Disc",cat:"Wheels",pattern:"Two Piece",icon:"⭕"},{name:"Turbine Disc",cat:"Wheels",pattern:"Sweep",icon:"⭕"},
+  {name:"Centrifuge Disc",cat:"Wheels",pattern:"Sweep",icon:"⭕"},{name:"Pressing Die Disc",cat:"Wheels",pattern:"Single Piece",icon:"⭕"},
+  {name:"Pipe Clamp Body",cat:"Fasteners",pattern:"Two Piece",icon:"🗜"},{name:"Saddle Clamp",cat:"Fasteners",pattern:"Two Piece",icon:"🗜"},
+  {name:"U-Bolt Base",cat:"Fasteners",pattern:"Match Plate",icon:"🗜"},{name:"Hose Clamp Band",cat:"Fasteners",pattern:"Match Plate",icon:"🗜"},
+  {name:"Locking Nut Block",cat:"Fasteners",pattern:"Single Piece",icon:"🗜"},{name:"Toggle Clamp Body",cat:"Fasteners",pattern:"Single Piece",icon:"🗜"},
+  {name:"C-Clamp Body",cat:"Fasteners",pattern:"Single Piece",icon:"🗜"},{name:"Quick Release Clamp",cat:"Fasteners",pattern:"Two Piece",icon:"🗜"},
+  {name:"T-Nut",cat:"Fasteners",pattern:"Match Plate",icon:"🗜"},{name:"Eye Bolt",cat:"Fasteners",pattern:"Single Piece",icon:"🗜"},
+  {name:"Lifting Lug",cat:"Fasteners",pattern:"Match Plate",icon:"🗜"},{name:"Clevis Pin Block",cat:"Fasteners",pattern:"Single Piece",icon:"🗜"},
+  {name:"Bell Crank Lever",cat:"Linkages",pattern:"Two Piece",icon:"🔀"},{name:"Rocker Lever Arm",cat:"Linkages",pattern:"Two Piece",icon:"🔀"},
+  {name:"Hand Lever",cat:"Linkages",pattern:"Single Piece",icon:"🔀"},{name:"Brake Lever",cat:"Linkages",pattern:"Two Piece",icon:"🔀"},
+  {name:"Pedal Arm",cat:"Linkages",pattern:"Two Piece",icon:"🔀"},{name:"Throttle Arm",cat:"Linkages",pattern:"Single Piece",icon:"🔀"},
+  {name:"Link Plate",cat:"Linkages",pattern:"Match Plate",icon:"🔀"},{name:"Drag Link Arm",cat:"Linkages",pattern:"Single Piece",icon:"🔀"},
+  {name:"Pitman Arm",cat:"Linkages",pattern:"Two Piece",icon:"🔀"},{name:"Connecting Rod End",cat:"Linkages",pattern:"Two Piece",icon:"🔀"},
+  {name:"Toggle Link",cat:"Linkages",pattern:"Single Piece",icon:"🔀"},{name:"Eccentric Strap",cat:"Linkages",pattern:"Two Piece",icon:"🔀"},
+  {name:"Tractor Axle Box",cat:"Agricultural",pattern:"Cope and Drag",icon:"🚜"},{name:"Plow Shank Casting",cat:"Agricultural",pattern:"Single Piece",icon:"🚜"},
+  {name:"Cultivator Tine",cat:"Agricultural",pattern:"Match Plate",icon:"🚜"},{name:"Disc Harrow Hub",cat:"Agricultural",pattern:"Two Piece",icon:"🚜"},
+  {name:"Seed Drill Casing",cat:"Agricultural",pattern:"Cope and Drag",icon:"🚜"},{name:"Harvester Tooth",cat:"Agricultural",pattern:"Match Plate",icon:"🚜"},
+  {name:"Irrigation Pump Body",cat:"Agricultural",pattern:"Two Piece",icon:"🚜"},{name:"Mill Grinding Ring",cat:"Agricultural",pattern:"Sweep",icon:"🚜"},
+  {name:"Thresher Cage Bar",cat:"Agricultural",pattern:"Match Plate",icon:"🚜"},
+  {name:"Rail Wheel",cat:"Railway",pattern:"Two Piece",icon:"🚂"},{name:"Brake Block",cat:"Railway",pattern:"Single Piece",icon:"🚂"},
+  {name:"Buffer Housing",cat:"Railway",pattern:"Two Piece",icon:"🚂"},{name:"Bogie Frame",cat:"Railway",pattern:"Cope and Drag",icon:"🚂"},
+  {name:"Axle Box Body",cat:"Railway",pattern:"Two Piece",icon:"🚂"},{name:"Rail Crossing Frog",cat:"Railway",pattern:"Cope and Drag",icon:"🚂"},
+  {name:"Draw Hook",cat:"Railway",pattern:"Two Piece",icon:"🚂"},{name:"Screw Coupling Body",cat:"Railway",pattern:"Single Piece",icon:"🚂"},
+  {name:"Door Hinge Casting",cat:"Railway",pattern:"Single Piece",icon:"🚂"},{name:"Brake Beam",cat:"Railway",pattern:"Cope and Drag",icon:"🚂"},
+  {name:"Ship Propeller",cat:"Marine",pattern:"Two Piece",icon:"⚓"},{name:"Anchor",cat:"Marine",pattern:"Two Piece",icon:"⚓"},
+  {name:"Rudder Post",cat:"Marine",pattern:"Cope and Drag",icon:"⚓"},{name:"Capstan Body",cat:"Marine",pattern:"Two Piece",icon:"⚓"},
+  {name:"Marine Cleat",cat:"Marine",pattern:"Single Piece",icon:"⚓"},{name:"Thimble Block",cat:"Marine",pattern:"Single Piece",icon:"⚓"},
+  {name:"Pump Impeller (Marine)",cat:"Marine",pattern:"Two Piece",icon:"⚓"},{name:"Stern Tube Bearing",cat:"Marine",pattern:"Sweep",icon:"⚓"},
+  {name:"Keel Casting",cat:"Marine",pattern:"Cope and Drag",icon:"⚓"},
+  {name:"Excavator Bucket Tooth",cat:"Construction",pattern:"Two Piece",icon:"🏗"},{name:"Sheave Block",cat:"Construction",pattern:"Single Piece",icon:"🏗"},
+  {name:"Crane Hook",cat:"Construction",pattern:"Two Piece",icon:"🏗"},{name:"Boom End Fitting",cat:"Construction",pattern:"Two Piece",icon:"🏗"},
+  {name:"Counterweight Block",cat:"Construction",pattern:"Cope and Drag",icon:"🏗"},{name:"Track Link",cat:"Construction",pattern:"Single Piece",icon:"🏗"},
+  {name:"Track Shoe",cat:"Construction",pattern:"Single Piece",icon:"🏗"},{name:"Roller Body",cat:"Construction",pattern:"Two Piece",icon:"🏗"},
+  {name:"Idler Roller",cat:"Construction",pattern:"Two Piece",icon:"🏗"},{name:"Drive Sprocket Body",cat:"Construction",pattern:"Two Piece",icon:"🏗"},
+  {name:"Dozer Blade Tip",cat:"Construction",pattern:"Match Plate",icon:"🏗"},{name:"Ripper Tooth",cat:"Construction",pattern:"Match Plate",icon:"🏗"},
+  {name:"Crusher Jaw Plate",cat:"Mining",pattern:"Cope and Drag",icon:"⛏"},{name:"Hammer Mill Head",cat:"Mining",pattern:"Cope and Drag",icon:"⛏"},
+  {name:"Ore Chute Liner",cat:"Mining",pattern:"Single Piece",icon:"⛏"},{name:"Cyclone Separator Body",cat:"Mining",pattern:"Two Piece",icon:"⛏"},
+  {name:"Apron Feeder Pan",cat:"Mining",pattern:"Cope and Drag",icon:"⛏"},{name:"Screen Panel Frame",cat:"Mining",pattern:"Cope and Drag",icon:"⛏"},
+  {name:"Mill Trunnion",cat:"Mining",pattern:"Cope and Drag",icon:"⛏"},{name:"Ball Mill End Cap",cat:"Mining",pattern:"Two Piece",icon:"⛏"},
+  {name:"Cone Crusher Mantle",cat:"Mining",pattern:"Two Piece",icon:"⛏"},{name:"Rock Drill Chuck",cat:"Mining",pattern:"Single Piece",icon:"⛏"},
+  {name:"Mixer Paddle",cat:"Food Processing",pattern:"Two Piece",icon:"🍴"},{name:"Meat Grinder Worm",cat:"Food Processing",pattern:"Single Piece",icon:"🍴"},
+  {name:"Sugar Centrifuge Basket",cat:"Food Processing",pattern:"Sweep",icon:"🍴"},{name:"Press Screw",cat:"Food Processing",pattern:"Single Piece",icon:"🍴"},
+  {name:"Evaporator Pan",cat:"Food Processing",pattern:"Cope and Drag",icon:"🍴"},{name:"Nozzle Body (Dairy)",cat:"Food Processing",pattern:"Single Piece",icon:"🍴"},
+  {name:"Conveyor Roller Hub",cat:"Food Processing",pattern:"Two Piece",icon:"🍴"},
+  {name:"Manhole Cover",cat:"Sanitary",pattern:"Single Piece",icon:"🚰"},{name:"Drain Grating",cat:"Sanitary",pattern:"Single Piece",icon:"🚰"},
+  {name:"Sluice Gate Frame",cat:"Sanitary",pattern:"Cope and Drag",icon:"🚰"},{name:"Fire Hydrant Body",cat:"Sanitary",pattern:"Two Piece",icon:"🚰"},
+  {name:"Water Meter Body",cat:"Sanitary",pattern:"Two Piece",icon:"🚰"},{name:"Stopcock Body",cat:"Sanitary",pattern:"Single Piece",icon:"🚰"},
+  {name:"Bell Mouth Inlet",cat:"Sanitary",pattern:"Two Piece",icon:"🚰"},{name:"Grease Trap Body",cat:"Sanitary",pattern:"Cope and Drag",icon:"🚰"},
+  {name:"Expansion Bellows End",cat:"Sanitary",pattern:"Single Piece",icon:"🚰"},
+  {name:"Tripod Foot Base",cat:"Industrial",pattern:"Single Piece",icon:"🔩"},{name:"Machine Tool Bed",cat:"Industrial",pattern:"Cope and Drag",icon:"🔩"},
+  {name:"Lathe Headstock",cat:"Industrial",pattern:"Cope and Drag",icon:"🔩"},{name:"Tailstock Body",cat:"Industrial",pattern:"Cope and Drag",icon:"🔩"},
+  {name:"Milling Machine Column",cat:"Industrial",pattern:"Cope and Drag",icon:"🔩"},{name:"Vice Body",cat:"Industrial",pattern:"Two Piece",icon:"🔩"},
+  {name:"Drill Press Spindle",cat:"Industrial",pattern:"Single Piece",icon:"🔩"},{name:"Chuck Body",cat:"Industrial",pattern:"Two Piece",icon:"🔩"},
+  {name:"Jig Plate",cat:"Industrial",pattern:"Match Plate",icon:"🔩"},{name:"Fixture Block",cat:"Industrial",pattern:"Cope and Drag",icon:"🔩"},
+  {name:"Mandrel Holder",cat:"Industrial",pattern:"Single Piece",icon:"🔩"},{name:"Arbor Press Frame",cat:"Industrial",pattern:"Cope and Drag",icon:"🔩"},
+  {name:"Lamp Post Base",cat:"Architectural",pattern:"Single Piece",icon:"🏛"},{name:"Railing Post",cat:"Architectural",pattern:"Single Piece",icon:"🏛"},
+  {name:"Gate Hinge Post",cat:"Architectural",pattern:"Two Piece",icon:"🏛"},{name:"Baluster Casting",cat:"Architectural",pattern:"Single Piece",icon:"🏛"},
+  {name:"Bench Leg",cat:"Architectural",pattern:"Single Piece",icon:"🏛"},{name:"Column Capital",cat:"Architectural",pattern:"Two Piece",icon:"🏛"},
+  {name:"Gutter Bracket",cat:"Architectural",pattern:"Single Piece",icon:"🏛"},{name:"Drain Cover Ornamental",cat:"Architectural",pattern:"Single Piece",icon:"🏛"},
+  {name:"Turbocharger Housing",cat:"Automotive",pattern:"Two Piece",icon:"🚗"},{name:"Caliper Body",cat:"Automotive",pattern:"Two Piece",icon:"🚗"},
+  {name:"Knuckle Arm",cat:"Automotive",pattern:"Two Piece",icon:"🚗"},{name:"Stub Axle",cat:"Automotive",pattern:"Single Piece",icon:"🚗"},
+  {name:"Control Arm",cat:"Automotive",pattern:"Two Piece",icon:"🚗"},{name:"Upright / King Pin Housing",cat:"Automotive",pattern:"Two Piece",icon:"🚗"},
+  {name:"Transmission Case",cat:"Automotive",pattern:"Cope and Drag",icon:"🚗"},{name:"Transfer Case Shell",cat:"Automotive",pattern:"Cope and Drag",icon:"🚗"},
+  {name:"Clutch Bell Housing",cat:"Automotive",pattern:"Two Piece",icon:"🚗"},{name:"Differential Carrier",cat:"Automotive",pattern:"Two Piece",icon:"🚗"},
+  {name:"Hub Carrier",cat:"Automotive",pattern:"Two Piece",icon:"🚗"},{name:"Wheel Hub",cat:"Automotive",pattern:"Two Piece",icon:"🚗"},
+  {name:"Steering Box Housing",cat:"Automotive",pattern:"Cope and Drag",icon:"🚗"},{name:"EGR Valve Body",cat:"Automotive",pattern:"Single Piece",icon:"🚗"},
+  {name:"Thermostat Housing",cat:"Automotive",pattern:"Single Piece",icon:"🚗"},
+  {name:"Switchgear Cabinet Base",cat:"Electrical",pattern:"Cope and Drag",icon:"⚡"},{name:"Transformer Core Clamp",cat:"Electrical",pattern:"Single Piece",icon:"⚡"},
+  {name:"Bus Bar Support",cat:"Electrical",pattern:"Single Piece",icon:"⚡"},{name:"Isolator Arm",cat:"Electrical",pattern:"Single Piece",icon:"⚡"},
+  {name:"Conduit Box",cat:"Electrical",pattern:"Match Plate",icon:"⚡"},{name:"Cable Entry Gland",cat:"Electrical",pattern:"Single Piece",icon:"⚡"},
+  {name:"Meter Box Housing",cat:"Electrical",pattern:"Two Piece",icon:"⚡"},{name:"Earthing Block",cat:"Electrical",pattern:"Match Plate",icon:"⚡"},
+  {name:"Loom Shuttle",cat:"Textile",pattern:"Single Piece",icon:"🧵"},{name:"Ring Frame Spindle",cat:"Textile",pattern:"Single Piece",icon:"🧵"},
+  {name:"Bobbin Holder",cat:"Textile",pattern:"Match Plate",icon:"🧵"},{name:"Reed Frame",cat:"Textile",pattern:"Single Piece",icon:"🧵"},
+  {name:"Heald Shaft End Cap",cat:"Textile",pattern:"Match Plate",icon:"🧵"},{name:"Creel Bracket",cat:"Textile",pattern:"Single Piece",icon:"🧵"},
+  {name:"Warp Beam Hub",cat:"Textile",pattern:"Two Piece",icon:"🧵"},
+  {name:"Turbine Blade Root",cat:"Aerospace",pattern:"Investment",icon:"✈"},{name:"Combustion Chamber Liner",cat:"Aerospace",pattern:"Investment",icon:"✈"},
+  {name:"Nozzle Vane",cat:"Aerospace",pattern:"Investment",icon:"✈"},{name:"Compressor Blade",cat:"Aerospace",pattern:"Investment",icon:"✈"},
+  {name:"Pump Casing (Aerospace)",cat:"Aerospace",pattern:"Investment",icon:"✈"},{name:"Actuator Body",cat:"Aerospace",pattern:"Two Piece",icon:"✈"},
+  {name:"Frame Lug Fitting",cat:"Aerospace",pattern:"Investment",icon:"✈"},{name:"Manifold Block",cat:"Aerospace",pattern:"Cope and Drag",icon:"✈"},
+  {name:"Hinge Bracket (Aviation)",cat:"Aerospace",pattern:"Investment",icon:"✈"},
+  {name:"Boiler Shell Ring",cat:"Heating",pattern:"Centrifugal",icon:"🔥"},{name:"Furnace Grate Bar",cat:"Heating",pattern:"Single Piece",icon:"🔥"},
+  {name:"Stove Burner Ring",cat:"Heating",pattern:"Single Piece",icon:"🔥"},{name:"Radiator Section",cat:"Heating",pattern:"Two Piece",icon:"🔥"},
+  {name:"Boiler End Plate",cat:"Heating",pattern:"Cope and Drag",icon:"🔥"},{name:"Chimney Pot Base",cat:"Heating",pattern:"Single Piece",icon:"🔥"},
+  {name:"Ash Pan",cat:"Heating",pattern:"Single Piece",icon:"🔥"},{name:"Heat Exchanger Shell",cat:"Heating",pattern:"Two Piece",icon:"🔥"},
+  {name:"Boiler Drum Nozzle",cat:"Heating",pattern:"Single Piece",icon:"🔥"},
+  {name:"Anvil",cat:"Misc",pattern:"Cope and Drag",icon:"🔨"},{name:"Vise Jaw Block",cat:"Misc",pattern:"Single Piece",icon:"🔨"},
+  {name:"Hammer Head",cat:"Misc",pattern:"Single Piece",icon:"🔨"},{name:"Pipe Wrench Body",cat:"Misc",pattern:"Single Piece",icon:"🔨"},
+  {name:"Surface Plate",cat:"Misc",pattern:"Cope and Drag",icon:"🔨"},{name:"V-Block",cat:"Misc",pattern:"Single Piece",icon:"🔨"},
+  {name:"Angle Plate",cat:"Misc",pattern:"Cope and Drag",icon:"🔨"},{name:"Ingot Mold",cat:"Misc",pattern:"Single Piece",icon:"🔨"},
+  {name:"Hydraulic Press Platen",cat:"Misc",pattern:"Cope and Drag",icon:"🔨"},{name:"Die Block",cat:"Misc",pattern:"Single Piece",icon:"🔨"},
+  {name:"Core Box Half",cat:"Misc",pattern:"Two Piece",icon:"🔨"},{name:"Mold Insert",cat:"Misc",pattern:"Investment",icon:"🔨"},
+];
+
+const CAT_COLORS = {
+  "Gears":"#FFD700","Bearings":"#00D4FF","Pulleys":"#FF6B00","Valves":"#39FF14","Fittings":"#FF44AA",
+  "Pumps":"#7B68EE","Engine":"#FF4500","Structural":"#20B2AA","Couplings":"#FFA500","Housings":"#98FB98",
+  "Wheels":"#DDA0DD","Fasteners":"#F0E68C","Linkages":"#87CEEB","Agricultural":"#8FBC8F","Railway":"#CD853F",
+  "Marine":"#4169E1","Construction":"#D2691E","Mining":"#BC8F8F","Food Processing":"#90EE90","Sanitary":"#B0C4DE",
+  "Industrial":"#C0C0C0","Architectural":"#DEB887","Automotive":"#FF6347","Electrical":"#FFFF00",
+  "Textile":"#DA70D6","Aerospace":"#87CEEB","Heating":"#FF8C00","Misc":"#778899",
+};
+
+// ══════════════════════════════════════════════
+// PARTS RENDERING
+// ══════════════════════════════════════════════
+let activeCat = 'All';
+let partsFiltered = [...PARTS_DATABASE];
+
+function renderParts() {
+  const cats = ['All', ...new Set(PARTS_DATABASE.map(p => p.cat))];
+  document.getElementById('categoryFilters').innerHTML = cats.map(c =>
+    `<div class="cat-btn${c === activeCat ? ' active' : ''}" onclick="setCat('${c}')">${c} (${c === 'All' ? PARTS_DATABASE.length : PARTS_DATABASE.filter(p => p.cat === c).length})</div>`
+  ).join('');
+  const grid = document.getElementById('partsGrid');
+  if (!partsFiltered.length) {
+    grid.innerHTML = '<div class="no-results">⚙ No parts found matching your search</div>';
+    return;
+  }
+  grid.innerHTML = partsFiltered.map(p => {
+    const color = CAT_COLORS[p.cat] || '#FFD700';
+    const geom = getPartGeometry(p.name);
+    return `<div class="part-card" style="--part-color:${color}" onclick="openModal('${p.name.replace(/'/g,"\\'")}')">
+      <div class="part-icon">${p.icon}</div>
+      <div class="part-name">${p.name}</div>
+      <div class="part-category">${p.cat}</div>
+      <div class="part-pattern">${p.pattern} Pattern</div>
+      <div class="part-vol-badge">📐 ${geom.shape}</div>
+      <button class="calc-btn-small" onclick="event.stopPropagation();openModal('${p.name.replace(/'/g,"\\'")}')">⚡ CALCULATE VOLUME</button>
+    </div>`;
+  }).join('');
+}
+
+function setCat(cat) {
+  activeCat = cat;
+  filterParts();
+}
+
+function filterParts() {
+  const search = document.getElementById('partsSearch').value.toLowerCase();
+  partsFiltered = PARTS_DATABASE.filter(p => {
+    const matchCat = activeCat === 'All' || p.cat === activeCat;
+    const matchSearch = !search || p.name.toLowerCase().includes(search) || p.cat.toLowerCase().includes(search);
+    return matchCat && matchSearch;
+  });
+  renderParts();
+}
+
+// ══════════════════════════════════════════════
+// MODAL
+// ══════════════════════════════════════════════
+let currentPart = null;
+
+function openModal(partName) {
+  currentPart = PARTS_DATABASE.find(p => p.name === partName);
+  if (!currentPart) return;
+  const geom = getPartGeometry(partName);
+  document.getElementById('modalTitle').textContent = currentPart.icon + ' ' + partName;
+  document.getElementById('modalSubtitle').textContent = currentPart.cat.toUpperCase() + ' · ' + currentPart.pattern.toUpperCase() + ' PATTERN';
+  document.getElementById('modalShapeInfo').textContent = '📐 Geometry Model: ' + geom.shape;
+  // Build dim inputs
+  const dimCols = geom.dims.length > 4 ? 2 : 2;
+  document.getElementById('modalDims').innerHTML = geom.dims.map(d =>
+    `<div class="dim-group">
+      <label>${d.label}</label>
+      <input type="number" id="modal_${d.id}" value="${d.def}" min="0.01" step="0.1" oninput="updateModal3D(currentPart, getPartGeometry(currentPart.name))" />
+    </div>`
+  ).join('');
+  document.getElementById('modalResults').style.display = 'none';
+  document.getElementById('volModal').style.display = 'flex';
+
+  // Start the 3D live preview in the modal
+  setTimeout(() => startModal3D(currentPart, geom), 80);
+}
+
+function closeModal() {
+  document.getElementById('volModal').style.display = 'none';
+  currentPart = null;
+  stopModal3D();
+}
+
+function closeModalOutside(e) {
+  if (e.target === document.getElementById('volModal')) closeModal();
+}
+
+function computePartVolume() {
+  if (!currentPart) return;
+  const geom = getPartGeometry(currentPart.name);
+  // Read dim values
+  const dims = {};
+  geom.dims.forEach(d => {
+    const el = document.getElementById('modal_' + d.id);
+    dims[d.id] = el ? parseFloat(el.value) || 0.01 : d.def;
+  });
+  let vol = 0;
+  try {
+    vol = geom.vol(dims);
+    if (!isFinite(vol) || vol <= 0) vol = 0.01;
+  } catch(e) { vol = 1; }
+  const density = parseFloat(document.getElementById('modalMaterial').value) || 7.15;
+  const mass = vol * density / 1000; // kg
+  const sprue = (vol / 6).toFixed(2);
+  const runner = (vol / 8).toFixed(2);
+  const gate = (vol / 12).toFixed(2);
+  const riser = (vol * 0.15).toFixed(2);
+  const pourTime = (2.4 * Math.sqrt(vol / 1000) * 60).toFixed(1);
+  const yieldPct = (100 * vol / (vol + parseFloat(riser) + vol * 0.05)).toFixed(1);
+
+  document.getElementById('r-vol').textContent = vol.toFixed(2);
+  document.getElementById('r-mass').textContent = mass.toFixed(3);
+  document.getElementById('r-sprue').textContent = sprue;
+  document.getElementById('r-runner').textContent = runner;
+  document.getElementById('r-gate').textContent = gate;
+  document.getElementById('r-riser').textContent = riser;
+  document.getElementById('r-pour').textContent = pourTime;
+  document.getElementById('r-yield').textContent = yieldPct + '%';
+  document.getElementById('modalFormula').innerHTML = `<b>Formula:</b> ${geom.formula}<br><b>Inputs:</b> ${geom.dims.map(d=>`${d.label.split('(')[0].trim()}=${dims[d.id]}mm`).join(', ')}`;
+  document.getElementById('modalResults').style.display = 'block';
+
+  // Mark card as calculated
+  document.querySelectorAll('.part-card').forEach(card => {
+    if (card.querySelector('.part-name')?.textContent === currentPart.name) {
+      card.classList.add('calculated');
+    }
+  });
+}
+
+
+// ══════════════════════════════════════════════
+// DROPDOWN: Build grouped <optgroup> list
+// ══════════════════════════════════════════════
+function buildDropdown() {
+  const sel = document.getElementById('partsDropdown');
+  const cats = {};
+  PARTS_DATABASE.forEach(p => {
+    if (!cats[p.cat]) cats[p.cat] = [];
+    cats[p.cat].push(p);
+  });
+  Object.keys(cats).sort().forEach(cat => {
+    const og = document.createElement('optgroup');
+    og.label = `── ${cat.toUpperCase()} (${cats[cat].length}) ──`;
+    cats[cat].forEach(p => {
+      const opt = document.createElement('option');
+      opt.value = p.name;
+      opt.textContent = `${p.icon} ${p.name} — ${p.pattern}`;
+      og.appendChild(opt);
+    });
+    sel.appendChild(og);
+  });
+}
+
+let selectedDropdownPart = null;
+
+function onDropdownSelect(name) {
+  if (!name) return;
+  const part = PARTS_DATABASE.find(p => p.name === name);
+  if (!part) return;
+  selectedDropdownPart = part;
+  const geom = getPartGeometry(name);
+
+  document.getElementById('dropdownPreviewRow').style.display = 'grid';
+  document.getElementById('previewPartName').textContent = part.name;
+  document.getElementById('previewPartCat').textContent = `${part.cat} · ${part.pattern} Pattern`;
+  document.getElementById('previewPartShape').textContent = `Geometry: ${geom.shape} | Formula: ${geom.formula}`;
+  document.getElementById('preview3DLabel').textContent = part.name.toUpperCase();
+
+  render3DPreview('preview3DCanvas', part, geom, getDimsFromGeom(geom));
+}
+
+function openSelectedPart() {
+  if (selectedDropdownPart) openPartModal(selectedDropdownPart);
+}
+
+function getDimsFromGeom(geom) {
+  const dims = {};
+  geom.dims.forEach(d => { dims[d.id] = d.def; });
+  return dims;
+}
+
+// ══════════════════════════════════════════════
+// 3D GEOMETRY ENGINE (Three.js)
+// ══════════════════════════════════════════════
+const _3d = {};  // cache: { renderer, scene, camera, mesh, animId }
+
+function init3DScene(canvasId) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return null;
+  if (_3d[canvasId]) {
+    cancelAnimationFrame(_3d[canvasId].animId);
+    _3d[canvasId].renderer.dispose();
+  }
+  const W = canvas.clientWidth || canvas.offsetWidth || 320;
+  const H = canvas.offsetHeight || 200;
+  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+  renderer.setSize(W, H);
+  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.setClearColor(0x000000, 0);
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(45, W / H, 0.01, 1000);
+  camera.position.set(3, 2, 3);
+  camera.lookAt(0, 0, 0);
+
+  scene.add(new THREE.AmbientLight(0xffffff, 0.4));
+  const dl = new THREE.DirectionalLight(0xFFD700, 1.2);
+  dl.position.set(5, 8, 5);
+  scene.add(dl);
+  const dl2 = new THREE.DirectionalLight(0xFF4500, 0.5);
+  dl2.position.set(-5, -3, -5);
+  scene.add(dl2);
+
+  // Grid helper
+  const grid = new THREE.GridHelper(4, 10, 0x1a1a2e, 0x1a1a2e);
+  scene.add(grid);
+
+  _3d[canvasId] = { renderer, scene, camera, mesh: null, animId: null };
+  return _3d[canvasId];
+}
+
+function getMeshForPart(part, geom, dims) {
+  const n = part.name.toLowerCase();
+  const s = (geom.shape || '').toLowerCase();
+  let geometry;
+  const scale = 1 / 100;  // mm → scene units (1cm = 0.01)
+
+  // CYLINDER (hollow) — rings, bearings, liners, drums
+  if (s.includes('hollow cylinder') || s.includes('ring') || s.includes('tube') || n.includes('liner') || n.includes('sleeve bearing')) {
+    const Do = (dims.Do || dims.D || 100) * scale;
+    const Di = (dims.Di || dims.d || Do * 0.6) * scale;
+    const L = (dims.L || dims.H || dims.W || 100) * scale;
+    const outerGeo = new THREE.CylinderGeometry(Do / 2, Do / 2, L, 32);
+    const innerGeo = new THREE.CylinderGeometry(Di / 2, Di / 2, L * 1.01, 32);
+    // Use CSG approximation via two meshes
+    const group = new THREE.Group();
+    const mat = new THREE.MeshStandardMaterial({ color: 0xE8A800, metalness: 0.8, roughness: 0.25, wireframe: false });
+    const matInner = new THREE.MeshStandardMaterial({ color: 0x060812, metalness: 0.5, roughness: 0.5, side: THREE.BackSide });
+    group.add(new THREE.Mesh(outerGeo, mat));
+    const inner = new THREE.Mesh(innerGeo, matInner);
+    group.add(inner);
+    // Cap rings
+    const capGeo = new THREE.RingGeometry(Di / 2, Do / 2, 32);
+    const capMat = new THREE.MeshStandardMaterial({ color: 0xE8A800, metalness: 0.8, roughness: 0.25, side: THREE.DoubleSide });
+    const cap1 = new THREE.Mesh(capGeo, capMat); cap1.rotation.x = Math.PI / 2; cap1.position.y = L / 2;
+    const cap2 = new THREE.Mesh(capGeo, capMat); cap2.rotation.x = Math.PI / 2; cap2.position.y = -L / 2;
+    group.add(cap1, cap2);
+    return group;
+  }
+
+  // SOLID CYLINDER — shafts, pins, rods, discs with bore ~0
+  if (s.includes('solid cylinder') || n.includes('shaft') || n.includes(' rod') || n.includes(' pin') || s.includes('solid disc')) {
+    const D = (dims.D || dims.Do || 50) * scale;
+    const L = (dims.L || dims.H || dims.t || 100) * scale;
+    geometry = new THREE.CylinderGeometry(D / 2, D / 2, L, 32);
+  }
+  // DISC with bore (gear, pulley, flange, wheel)
+  else if (s.includes('disc') || s.includes('pulley') || s.includes('flange') || s.includes('gear') || n.includes('gear') || n.includes('pulley') || n.includes('wheel')) {
+    const D = (dims.D || dims.Do || dims.D_fl || 100) * scale;
+    const d = (dims.d || dims.Di || dims.d_bore || 0) * scale;
+    const W = (dims.W || dims.t || dims.H || 30) * scale;
+    const outerGeo = new THREE.CylinderGeometry(D / 2, D / 2, W, 48);
+    const group = new THREE.Group();
+    const mat = new THREE.MeshStandardMaterial({ color: 0xFFD700, metalness: 0.9, roughness: 0.15 });
+    group.add(new THREE.Mesh(outerGeo, mat));
+    if (d > 0.001) {
+      const boreGeo = new THREE.CylinderGeometry(d / 2, d / 2, W * 1.01, 32);
+      const boreMat = new THREE.MeshStandardMaterial({ color: 0x060812, side: THREE.BackSide });
+      group.add(new THREE.Mesh(boreGeo, boreMat));
+      // bore caps
+      const rg = new THREE.RingGeometry(d / 2, D / 2, 32);
+      const rm = new THREE.MeshStandardMaterial({ color: 0xFFD700, metalness: 0.9, roughness: 0.15, side: THREE.DoubleSide });
+      const c1 = new THREE.Mesh(rg, rm); c1.rotation.x = Math.PI / 2; c1.position.y = W / 2;
+      const c2 = new THREE.Mesh(rg, rm); c2.rotation.x = Math.PI / 2; c2.position.y = -W / 2;
+      group.add(c1, c2);
+    }
+    return group;
+  }
+  // SPHERE / BALL
+  else if (s.includes('sphere') || s.includes('ball') || s.includes('glob')) {
+    const D = (dims.D || dims.Do || 120) * scale;
+    geometry = new THREE.SphereGeometry(D / 2, 32, 32);
+  }
+  // CONE / BEVEL
+  else if (s.includes('cone') || s.includes('bevel') || s.includes('truncated') || n.includes('bevel')) {
+    const Db = (dims.D || dims.D_large || 120) * scale;
+    const Dt = (dims.d_bore || dims.D_small || Db * 0.5) * scale;
+    const H = (dims.W || dims.H || dims.L || 40) * scale;
+    geometry = new THREE.CylinderGeometry(Dt / 2, Db / 2, H, 32);
+  }
+  // BOX / HOUSING / BLOCK / FRAME
+  else if (s.includes('box') || s.includes('block') || s.includes('frame') || s.includes('plate') || s.includes('slab') || s.includes('rect')) {
+    const L = (dims.L || 200) * scale;
+    const W = (dims.W || dims.B || 150) * scale;
+    const H = (dims.H || dims.t || 100) * scale;
+    const group = new THREE.Group();
+    const outerGeo = new THREE.BoxGeometry(L, H, W);
+    const mat = new THREE.MeshStandardMaterial({ color: 0xE8A800, metalness: 0.6, roughness: 0.4 });
+    group.add(new THREE.Mesh(outerGeo, mat));
+    // hollow box: inner shell
+    const t = (dims.t || Math.min(L, W, H) * 8) * scale;
+    if (t < Math.min(L, W, H) / 2) {
+      const inL = Math.max(0.001, L - 2 * t), inW = Math.max(0.001, W - 2 * t), inH = Math.max(0.001, H - t);
+      const innerGeo = new THREE.BoxGeometry(inL, inH, inW);
+      const innerMat = new THREE.MeshStandardMaterial({ color: 0x060812, side: THREE.BackSide });
+      const inner = new THREE.Mesh(innerGeo, innerMat);
+      inner.position.y = t / 2;
+      group.add(inner);
+    }
+    return group;
+  }
+  // TORUS (pipe elbow)
+  else if (s.includes('torus') || n.includes('elbow') || n.includes('bend')) {
+    const R = (dims.R || dims.d_o || 60) * scale;
+    const r = (dims.d_o || 50) * scale * 0.35;
+    geometry = new THREE.TorusGeometry(R, r, 16, 48, Math.PI / 2);
+  }
+  // IMPELLER (disc with visual vane hint)
+  else if (n.includes('impeller') || s.includes('impeller')) {
+    const Do = (dims.Do || dims.D || 250) * scale;
+    const Di = (dims.Di || Do * 0.3) * scale;
+    const t = (dims.t || dims.B || 20) * scale;
+    const group = new THREE.Group();
+    const discGeo = new THREE.CylinderGeometry(Do / 2, Do / 2, t, 48);
+    const mat = new THREE.MeshStandardMaterial({ color: 0xFF8C00, metalness: 0.85, roughness: 0.2 });
+    group.add(new THREE.Mesh(discGeo, mat));
+    // vanes
+    for (let i = 0; i < 6; i++) {
+      const vGeo = new THREE.BoxGeometry(Do / 2 - Di / 2, t * 0.8, t * 0.15);
+      const vm = new THREE.Mesh(vGeo, mat);
+      const angle = (i / 6) * Math.PI * 2;
+      vm.rotation.y = angle;
+      vm.position.set(Math.cos(angle) * (Do / 4 + Di / 4), 0, Math.sin(angle) * (Do / 4 + Di / 4));
+      group.add(vm);
+    }
+    return group;
+  }
+  // Default fallback — solid block
+  else {
+    const L = (dims.L || dims.D || 150) * scale;
+    const W = (dims.W || dims.B || L) * scale;
+    const H = (dims.H || dims.t || L * 0.5) * scale;
+    geometry = new THREE.BoxGeometry(L, H, W);
+  }
+
+  const mat = new THREE.MeshStandardMaterial({ color: 0xFFD700, metalness: 0.85, roughness: 0.2 });
+  return new THREE.Mesh(geometry, mat);
+}
+
+function render3DPreview(canvasId, part, geom, dims) {
+  const ctx3 = init3DScene(canvasId);
+  if (!ctx3) return;
+  const { renderer, scene, camera } = ctx3;
+
+  // Remove old mesh
+  if (ctx3.mesh) {
+    if (Array.isArray(ctx3.mesh)) ctx3.mesh.forEach(m => scene.remove(m));
+    else scene.remove(ctx3.mesh);
+  }
+
+  const obj = getMeshForPart(part, geom, dims);
+  // Scale to fit view
+  const box = new THREE.Box3().setFromObject(obj);
+  const size = box.getSize(new THREE.Vector3());
+  const maxDim = Math.max(size.x, size.y, size.z);
+  if (maxDim > 0) {
+    const targetSize = 1.5;
+    const scaleFactor = targetSize / maxDim;
+    obj.scale.set(scaleFactor, scaleFactor, scaleFactor);
+  }
+  obj.position.y = 0;
+  scene.add(obj);
+  ctx3.mesh = obj;
+
+  // Animate
+  let angle = 0;
+  function animate() {
+    ctx3.animId = requestAnimationFrame(animate);
+    angle += 0.008;
+    obj.rotation.y = angle;
+    renderer.render(scene, camera);
+  }
+  animate();
+}
+
+// ══════════════════════════════════════════════
+// MODAL 3D — live update on dimension change
+// ══════════════════════════════════════════════
+let modal3DActive = false;
+
+function startModal3D(part, geom) {
+  modal3DActive = true;
+  updateModal3D(part, geom);
+}
+
+function updateModal3D(part, geom) {
+  if (!modal3DActive) return;
+  const dims = {};
+  geom.dims.forEach(d => {
+    const el = document.getElementById('modal_' + d.id);
+    dims[d.id] = el ? parseFloat(el.value) || d.def : d.def;
+  });
+  render3DPreview('modal3DCanvas', part, geom, dims);
+}
+
+function stopModal3D() {
+  modal3DActive = false;
+  if (_3d['modal3DCanvas']) {
+    cancelAnimationFrame(_3d['modal3DCanvas'].animId);
+  }
+}
+
+function initIntro() {
+  const canvas = document.getElementById('introCanvas');
+  const ctx = canvas.getContext('2d');
+  canvas.width = window.innerWidth; canvas.height = window.innerHeight;
+  const particles = Array.from({length:100},()=>({x:Math.random()*canvas.width,y:Math.random()*canvas.height,vx:(Math.random()-0.5)*0.6,vy:(Math.random()-0.5)*0.6,r:Math.random()*2+0.5,a:Math.random(),col:Math.random()>0.5?'#FFD700':'#FF4500'}));
+  function draw() {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    particles.forEach(p=>{p.x+=p.vx;p.y+=p.vy;if(p.x<0)p.x=canvas.width;if(p.x>canvas.width)p.x=0;if(p.y<0)p.y=canvas.height;if(p.y>canvas.height)p.y=0;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fillStyle=p.col;ctx.globalAlpha=p.a*0.4;ctx.fill();});
+    ctx.globalAlpha=1;
+    if(!introDone)requestAnimationFrame(draw);
+  }
+  draw();
+  const sparks=document.getElementById('sparks');
+  for(let i=0;i<30;i++){const s=document.createElement('div');s.className='spark';const angle=Math.random()*Math.PI*2,dist=80+Math.random()*200;s.style.cssText=`left:${50+(Math.random()-0.5)*30}%;top:${50+(Math.random()-0.5)*30}%;--dur:${1+Math.random()*2}s;--delay:${Math.random()*3}s;--tx:${Math.cos(angle)*dist}px;--ty:${Math.sin(angle)*dist}px;background:${Math.random()>0.5?'#FFD700':'#FF4500'};`;sparks.appendChild(s);}
+  setTimeout(skipIntro,5500);
+}
+
+let introDone=false;
+function skipIntro(){
+  if(introDone)return;introDone=true;
+  const overlay=document.getElementById('introOverlay');
+  overlay.style.transition='opacity 0.8s ease';overlay.style.opacity='0';
+  setTimeout(()=>{overlay.style.display='none';const app=document.getElementById('app');app.style.display='block';app.style.opacity='0';app.style.transition='opacity 0.8s ease';setTimeout(()=>{app.style.opacity='1';},50);initApp();},800);
+}
+
+function initApp(){
+  initBgCanvas();
+  renderParts();
+  buildDropdown();
+  document.querySelectorAll('.nav-item').forEach(item=>{
+    if(!item.dataset.section) return; // skip <a> links to other pages
+    item.addEventListener('click',()=>{
+      document.querySelectorAll('.nav-item').forEach(n=>n.classList.remove('active'));
+      document.querySelectorAll('.app-section').forEach(s=>s.classList.remove('active'));
+      item.classList.add('active');
+      const sec = document.getElementById('section-'+item.dataset.section);
+      if(sec) sec.classList.add('active');
+    });
+  });
+}
+
+function initBgCanvas(){
+  const canvas=document.getElementById('bgCanvas');
+  const ctx=canvas.getContext('2d');
+  canvas.width=window.innerWidth;canvas.height=window.innerHeight;
+  const dots=Array.from({length:40},()=>({x:Math.random()*canvas.width,y:Math.random()*canvas.height,vx:(Math.random()-0.5)*0.3,vy:(Math.random()-0.5)*0.3,r:Math.random()*1.5+0.5}));
+  function draw(){ctx.clearRect(0,0,canvas.width,canvas.height);dots.forEach(d=>{d.x+=d.vx;d.y+=d.vy;if(d.x<0)d.x=canvas.width;if(d.x>canvas.width)d.x=0;if(d.y<0)d.y=canvas.height;if(d.y>canvas.height)d.y=0;ctx.beginPath();ctx.arc(d.x,d.y,d.r,0,Math.PI*2);ctx.fillStyle='rgba(255,215,0,0.3)';ctx.fill();});requestAnimationFrame(draw);}
+  draw();
+}
+
+document.addEventListener('DOMContentLoaded',()=>{initIntro();});
+document.addEventListener('keydown',e=>{
+  if(e.key==='Escape'){closeModal();if(chatOpen)toggleAIChat();}
+  if((e.ctrlKey||e.metaKey)&&e.key==='k'){e.preventDefault();toggleAIChat();}
+});
+
+
+// ══════════════════════════════════════════════
+// AI CHATBOX — GEMINI REDIRECT ENGINE
+// No API key needed! Opens gemini.google.com
+// ══════════════════════════════════════════════
+
+// ══════════════════════════════════════════════════════════════
+// VISHVAKARMA FOUNDRY AI — BUILT-IN KNOWLEDGE ENGINE
+// No API needed. Real foundry engineering data from reference books.
+// Ref: Heine, Loper & Rosenthal | P.L. Jain | P.N. Rao
+// ══════════════════════════════════════════════════════════════
+let chatOpen = false;
+let lastCalcData = null;
+let chatBusy = false;
+
+// ── MATERIAL KNOWLEDGE BASE (from reference books) ──
+const MATERIAL_KB = {
+  "Grey Cast Iron": { pourTemp:"1350–1420°C", shrinkage:"0.8–1.0%", draft:"1–2°", gatingRatio:"1:2:4 (pressurized)", risks:["Graphite flake weakness","Section sensitivity","Hard edges from chill"], inoculant:"FeSi 75% (0.2–0.5%)", heatTreat:"Stress relief at 550–600°C", density:7.15 },
+  "Ductile Iron": { pourTemp:"1370–1450°C", shrinkage:"0.5–0.7%", draft:"1–3°", gatingRatio:"1:1.5:2 (semi-pressurized)", risks:["Shrinkage porosity","Dross inclusions","Carbide formation","Nodule degeneration"], inoculant:"FeSiMg treatment + post-inoculant", heatTreat:"Anneal 900°C/1hr, furnace cool", density:7.10 },
+  "White Cast Iron": { pourTemp:"1350–1400°C", shrinkage:"1.0–2.0%", draft:"2–3°", gatingRatio:"1:1:1 (non-pressurized)", risks:["Extreme brittleness","Cracking from thermal shock","Difficult machining"], inoculant:"None — white structure desired", heatTreat:"Anneal at 950°C to convert to malleable", density:7.60 },
+  "Malleable Iron": { pourTemp:"1370–1430°C", shrinkage:"1.5–2.0%", draft:"1–2°", gatingRatio:"1:2:3", risks:["Incomplete malleabilization","Shrinkage cavities","Decarburization surface"], inoculant:"None for white iron base", heatTreat:"2-stage anneal: 950°C hold + slow cool through 720°C", density:7.30 },
+  "Carbon Steel": { pourTemp:"1520–1600°C", shrinkage:"1.5–2.0%", draft:"1.5–3°", gatingRatio:"1:2:1.5 (pressurized)", risks:["Hot tearing","Shrinkage porosity","Gas porosity from H2/N2","Rough surface"], inoculant:"Al deoxidation (0.05–0.1%)", heatTreat:"Normalize 870–920°C, air cool", density:7.85 },
+  "Stainless Steel 304": { pourTemp:"1500–1580°C", shrinkage:"2.0–2.5%", draft:"2–3°", gatingRatio:"1:1.5:1 (pressurized)", risks:["Hot cracking","Sigma phase","Carbide precipitation","Oxidation"], inoculant:"Ar degassing recommended", heatTreat:"Solution anneal 1050°C, water quench", density:8.00 },
+  "Aluminum Alloy A356": { pourTemp:"680–740°C", shrinkage:"1.3–1.5%", draft:"1–2°", gatingRatio:"1:2:4 (unpressurized)", risks:["Hydrogen porosity","Oxide inclusions","Hot tearing","Shrinkage pipe"], inoculant:"Ti-B grain refiner + Sr modifier (0.02%)", heatTreat:"T6: 540°C/12h + WQ + 155°C/6h age", density:2.68 },
+  "Aluminum 6061": { pourTemp:"660–720°C", shrinkage:"1.2–1.5%", draft:"1–2°", gatingRatio:"1:2:4", risks:["Gas porosity","Oxide films","Misrun in thin sections"], inoculant:"Ti-B grain refiner", heatTreat:"T6 temper", density:2.70 },
+  "Brass C360": { pourTemp:"930–1000°C", shrinkage:"1.4–1.7%", draft:"1–2°", gatingRatio:"1:1.5:3", risks:["Zinc fumes (health hazard)","Dezincification","Porosity from Zn vapor"], inoculant:"None — degas only", heatTreat:"Stress relief 250°C", density:8.50 },
+  "Bronze C932": { pourTemp:"1000–1100°C", shrinkage:"1.5–2.0%", draft:"1.5–2°", gatingRatio:"1:2:3", risks:["Tin sweat","Inverse segregation","Gas porosity","Shrinkage pipe"], inoculant:"P deoxidizer (0.01–0.04%)", heatTreat:"Anneal 600°C/2h if needed", density:8.93 },
+  "Copper": { pourTemp:"1100–1200°C", shrinkage:"1.6–2.1%", draft:"1.5–2°", gatingRatio:"1:1.5:2", risks:["Hydrogen embrittlement","Oxide inclusions","Severe shrinkage","Fire cracking"], inoculant:"P deox (0.02%) or lithium", heatTreat:"Anneal 400–650°C", density:8.96 },
+  "Titanium Ti-6Al-4V": { pourTemp:"1660–1700°C (vacuum)", shrinkage:"2.5–3.5%", draft:"3–5°", gatingRatio:"1:1:1 (special)", risks:["Extreme reactivity with O2/N2","Alpha case formation","Hot cracking","Contamination"], inoculant:"Vacuum/inert atmosphere required", heatTreat:"Anneal 700–790°C/2h, furnace cool", density:4.43 },
+};
+
+// ── PATTERN TYPE KNOWLEDGE ──
+const PATTERN_KB = {
+  "Single Piece": { complexity:"Simple", split:"No split needed", notes:"Suitable for flat-back castings. Entire pattern in one piece in drag.", defectRisk:"Low — but limited to simple shapes" },
+  "Two Piece": { complexity:"Moderate", split:"Split at parting line", notes:"Most common. Cope and drag halves. Alignment pins critical.", defectRisk:"Mismatch/shift at parting line possible" },
+  "Cope and Drag": { complexity:"High", split:"Separate cope and drag patterns on separate plates", notes:"For large castings. Each half mounted separately. Used in machine molding.", defectRisk:"Mismatch, fins at parting line" },
+  "Match Plate": { complexity:"High", split:"Both halves on single plate", notes:"For high production. Both cope & drag patterns on one plate. Machine molding.", defectRisk:"Pattern wear, alignment drift over production" },
+  "Gated": { complexity:"High", split:"Multiple patterns with integral gating", notes:"Multiple patterns connected by gates/runners. High production rate.", defectRisk:"Uneven filling between cavities" },
+  "Sweep": { complexity:"Low-Medium", split:"Rotational", notes:"For circular/axisymmetric parts. Pattern swept around axis. Saves pattern cost.", defectRisk:"Surface finish depends on sweep quality" },
+};
+
+// ── COMMON CASTING DEFECTS DATABASE ──
+const DEFECT_DB = {
+  shrinkage: { name:"Shrinkage Porosity/Cavity", cause:"Inadequate feeding during solidification, insufficient riser volume", location:"Last point to solidify — thick sections, junctions, boss areas", severity:"Critical", prevention:"Increase riser size, use chills at thick sections, ensure directional solidification", ref:"P.L. Jain Ch.8; Heine Ch.12" },
+  porosity: { name:"Gas Porosity (Blowholes)", cause:"Dissolved gases (H₂, N₂) in molten metal, moisture in mold", location:"Sub-surface, near core prints, near mold-metal interface", severity:"Major", prevention:"Proper degassing, dry sand (moisture <3.5%), adequate venting", ref:"P.N. Rao Ch.4; AFS Handbook" },
+  misrun: { name:"Misrun / Cold Shut", cause:"Metal solidifies before filling cavity — low pour temp, thin sections", location:"Thin walls, far end from gate, complex geometries", severity:"Critical", prevention:"Increase pouring temp by 20-30°C, increase gate area, use multiple ingates", ref:"Heine Ch.10" },
+  hotTear: { name:"Hot Tearing / Hot Cracking", cause:"Tensile stress during solidification due to restrained contraction", location:"Re-entrant angles, T-junctions, section changes", severity:"Critical", prevention:"Add fillets (R ≥ 3mm), uniform section, proper mold collapsibility", ref:"P.L. Jain Ch.9" },
+  sandInclusion: { name:"Sand Inclusion / Dirt", cause:"Mold erosion, loose sand, poor ramming", location:"Top surface (cope side), near gates", severity:"Major", prevention:"Use facing sand, proper ramming (hardness 70-80), ceramic filters in runner", ref:"AFS Sand Casting Handbook" },
+  coldShut: { name:"Cold Shut", cause:"Two metal streams meet but don't fuse — low temp or long flow path", location:"Where two streams converge, opposite side of gate", severity:"Critical", prevention:"Increase pour temp, modify gate position, increase flow rate", ref:"Heine Ch.10" },
+  metalPenetration: { name:"Metal Penetration", cause:"Molten metal penetrates sand grains — high pour temp, coarse sand", location:"Surface roughness, heavy sections near gate", severity:"Minor-Major", prevention:"Use finer sand (AFS 55-70), apply mold coating, reduce pour temp", ref:"P.N. Rao Ch.5" },
+  scab: { name:"Scab / Erosion Scab", cause:"Sand expansion at high temp, poor sand mix, steam pressure", location:"Flat surfaces on cope, large flat areas", severity:"Minor", prevention:"Add wood flour/cereal binder (1-2%), proper venting, expansion control", ref:"AFS Handbook" },
+  swell: { name:"Swell / Mold Wall Movement", cause:"Metallostatic pressure exceeds mold strength — poor ramming", location:"Lower sections of tall castings", severity:"Major", prevention:"Proper ramming, adequate weights/clamps, flask reinforcement", ref:"P.L. Jain Ch.7" },
+  shift: { name:"Mold Shift / Core Shift", cause:"Misalignment of cope-drag or core displacement", location:"At parting line, around core prints", severity:"Critical", prevention:"Use guide pins, adequate core prints, check alignment before closing", ref:"P.N. Rao Ch.3" },
+  rattail: { name:"Rat Tail / Buckle", cause:"Sand expansion compression on flat surfaces", location:"Large flat areas on cope side", severity:"Minor", prevention:"Add combustible additives, use anti-buckle rods, controlled moisture", ref:"AFS Handbook" },
+  blowhole: { name:"Blowhole / Pin Holes", cause:"Gas entrapment from moisture, binder decomposition, or turbulence", location:"Sub-surface in cope, near cores, thick sections", severity:"Major", prevention:"Vent mold properly, reduce moisture to 3-4%, slower pouring", ref:"Heine Ch.11" },
+  oxideDross: { name:"Oxide/Dross Inclusion", cause:"Turbulent pouring, oxide skin breaking, poor skimming", location:"Top surfaces, near gates if turbulent flow", severity:"Major", prevention:"Skim ladle, use pouring basin with dam, bottom-gating system", ref:"P.L. Jain Ch.8" },
+  finFlash: { name:"Fin / Flash at Parting Line", cause:"Excessive gap at parting line, poor mold closure", location:"Parting line, core joints", severity:"Minor", prevention:"Proper mold clamping, accurate pattern alignment", ref:"P.N. Rao Ch.4" },
+  roughSurface: { name:"Rough Surface Finish", cause:"Coarse sand, poor coating, high pour temp", location:"Entire surface or localized areas", severity:"Minor", prevention:"Finer sand (AFS 60+), apply graphite/zircon wash, optimize temp", ref:"AFS Handbook" },
+};
+
+// ── AI CONVERSATION RESPONSES ──
+const CONV_RESPONSES = {
+  "hello": "Namaste! 🙏 I'm **Vishvakarma AI**, your foundry engineering assistant.\n\nI can help you with:\n• **Defect analysis** — predict casting defects\n• **Precautions** — 15-point checklist per Heine & P.L. Jain\n• **Gating design** — sprue/runner/gate/riser optimization\n• **Material advice** — pouring temps, shrinkage, heat treatment\n\nCalculate a part first, then use the quick buttons or ask me anything!",
+  "hi": "Hello! 👋 I'm ready to analyze your castings. Calculate a part's volume and I'll provide engineering-grade analysis based on **Heine, Loper & Rosenthal** and **P.L. Jain** reference data.\n\nTry asking:\n• *What defects can occur in my casting?*\n• *What precautions should I take?*\n• *What is the pouring temperature for aluminium?*",
+  "help": "Here's what I can do:\n\n**After calculating a part:**\n• 🔍 **Defect Analysis** — 15 possible defects with causes & prevention\n• ⚠️ **Precautions** — 15-point foundry checklist\n• 📄 **Full Report** — Complete casting process analysis\n• 📐 **Gating Diagram** — Visual sprue/runner/gate layout\n\n**General questions I can answer:**\n• Pouring temperatures for any material\n• Shrinkage allowances\n• Gating ratios\n• Pattern types explanation\n• Heat treatment recommendations\n\n**Gemini Button:** Opens Google Gemini with your prompt auto-copied!",
+  "pouring temperature": "**Standard Pouring Temperatures (Ref: P.L. Jain):**\n\n• Grey Cast Iron: **1350–1420°C**\n• Ductile Iron: **1370–1450°C**\n• Carbon Steel: **1520–1600°C**\n• SS 304: **1500–1580°C**\n• Aluminum A356: **680–740°C**\n• Brass C360: **930–1000°C**\n• Bronze C932: **1000–1100°C**\n• Copper: **1100–1200°C**\n\n💡 **Rule of thumb:** Pour 50–100°C above liquidus. Higher superheat = better fluidity but more gas risk.",
+  "shrinkage": "**Shrinkage Allowances (Ref: Heine, Loper & Rosenthal):**\n\n• Grey CI: **0.8–1.0%** (low graphite expansion)\n• Ductile Iron: **0.5–0.7%** (graphite nodule expansion)\n• Carbon Steel: **1.5–2.0%** (significant)\n• Stainless Steel: **2.0–2.5%** (high)\n• Aluminum: **1.3–1.5%**\n• Brass: **1.4–1.7%**\n• Bronze: **1.5–2.0%**\n\n⚠️ **Restrained shrinkage** in complex shapes causes **hot tearing**. Add fillets!",
+  "gating ratio": "**Standard Gating Ratios (Ref: P.N. Rao):**\n\n• **Pressurized** (Ferrous): 1:2:1.5 — Higher velocity, good for thin walls\n• **Unpressurized** (Non-ferrous): 1:2:4 — Reduces turbulence, less dross\n• **Grey CI**: 1:2:4 (pressurized) — Standard foundry practice\n• **Steel**: 1:2:1.5 — Fast fill before freezing\n• **Aluminum**: 1:2:4 — Must avoid turbulence (oxide films)\n\n💡 **Gating Ratio = Sprue : Runner : Gate area ratios**",
+  "draft angle": "**Draft Angles for Pattern Withdrawal (Ref: P.L. Jain):**\n\n• **External surfaces:** 1–2° (machine molding: 0.5–1°)\n• **Internal surfaces:** 2–3° (harder to withdraw)\n• **Deep pockets:** 3–5°\n• **Investment casting:** 0.5–1° (precision)\n\n💡 Insufficient draft → pattern sticks → mold damage → sand inclusion defects",
+  "riser": "**Riser Design Rules (Ref: Heine Ch.12):**\n\n• **Modulus method:** Riser modulus > 1.2 × Casting modulus\n• **Volume rule:** Riser vol = 15–25% of casting volume\n• **Feeding distance:** Max 4.5T for plate, 6T for bar (T=thickness)\n• **Shape:** Cylindrical preferred (H:D = 1:1 to 1.5:1)\n• **Placement:** At thickest section, last to solidify\n• **Types:** Open (cope), blind (drag), side riser\n\n💡 Use **Chvorinov's Rule:** Solidification time ∝ (V/SA)²",
+  "defects": "**Top Casting Defects (Ref: P.L. Jain & Heine):**\n\n1. **Shrinkage** — inadequate feeding\n2. **Gas Porosity** — moisture/dissolved gases\n3. **Misrun** — low pour temp\n4. **Hot Tear** — restrained contraction\n5. **Cold Shut** — streams don't fuse\n6. **Sand Inclusion** — mold erosion\n7. **Metal Penetration** — coarse sand\n8. **Scab** — sand expansion\n9. **Swell** — weak mold walls\n10. **Shift** — cope/drag misalignment\n\nCalculate a part and click 🔍 for part-specific analysis!",
+};
+
+// ══════════════════════════════════════════════
+// CHATBOX UI FUNCTIONS
+// ══════════════════════════════════════════════
+function toggleAIChat() {
+  chatOpen = !chatOpen;
+  const panel = document.getElementById('aiChatPanel');
+  if (!panel) return;
+  if (chatOpen) {
+    panel.style.display = 'flex';
+    requestAnimationFrame(() => panel.classList.add('open'));
+    const notif = document.getElementById('chatNotif');
+    if (notif) notif.style.display = 'none';
+    const inp = document.getElementById('chatInput');
+    if (inp) setTimeout(() => inp.focus(), 350);
+  } else {
+    panel.classList.remove('open');
+    setTimeout(() => { panel.style.display = 'none'; }, 350);
+  }
+}
+
+function addChatMsg(html, type) {
+  const c = document.getElementById('chatMessages');
+  if (!c) return null;
+  const d = document.createElement('div');
+  d.className = 'chat-msg ' + type;
+  d.innerHTML = html;
+  c.appendChild(d);
+  c.scrollTop = c.scrollHeight;
+  return d;
+}
+
+function showTyping() {
+  const c = document.getElementById('chatMessages');
+  if (!c) return;
+  const d = document.createElement('div');
+  d.className = 'chat-typing'; d.id = 'typingDots';
+  d.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
+  c.appendChild(d); c.scrollTop = c.scrollHeight;
+}
+
+function hideTyping() {
+  const e = document.getElementById('typingDots');
+  if (e) e.remove();
+}
+
+function setStatus(text, color) {
+  const el = document.getElementById('aiStatusText');
+  if (el) el.innerHTML = '● <span style="color:var(--' + color + ');">' + text + '</span>';
+}
+
+function formatAI(text) {
+  if (!text) return '';
+  return text
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+    .replace(/\*(.+?)\*/g, '<em>$1</em>')
+    .replace(/#{1,3}\s*(.+)/g, '<strong style="color:var(--gold-bright);">$1</strong>')
+    .replace(/\n/g, '<br>');
+}
+
+// ── Simulate AI "thinking" delay (makes it feel real) ──
+function aiDelay(min, max) {
+  return new Promise(r => setTimeout(r, min + Math.random() * (max - min)));
+}
+
+// ══════════════════════════════════════════════
+// SMART RESPONSE ENGINE (built-in knowledge)
+// ══════════════════════════════════════════════
+function getSmartResponse(userText) {
+  const q = userText.toLowerCase().trim();
+  
+  // Check conversation responses
+  for (const [key, val] of Object.entries(CONV_RESPONSES)) {
+    if (q.includes(key)) return val;
+  }
+  
+  // Material-specific queries
+  for (const [mat, data] of Object.entries(MATERIAL_KB)) {
+    if (q.includes(mat.toLowerCase().split(' ')[0].toLowerCase())) {
+      return '**' + mat + ' — Engineering Data:**\n\n' +
+        '• Pouring Temperature: **' + data.pourTemp + '**\n' +
+        '• Shrinkage Allowance: **' + data.shrinkage + '**\n' +
+        '• Draft Angle: **' + data.draft + '**\n' +
+        '• Gating Ratio: **' + data.gatingRatio + '**\n' +
+        '• Inoculant: ' + data.inoculant + '\n' +
+        '• Heat Treatment: ' + data.heatTreat + '\n' +
+        '• Key Risks: ' + data.risks.join(', ') + '\n\n' +
+        '*(Ref: Heine, Loper & Rosenthal; P.L. Jain)*';
+    }
+  }
+  
+  // Pattern type queries
+  for (const [pat, data] of Object.entries(PATTERN_KB)) {
+    if (q.includes(pat.toLowerCase())) {
+      return '**' + pat + ' Pattern:**\n\n' +
+        '• Complexity: ' + data.complexity + '\n' +
+        '• Split: ' + data.split + '\n' +
+        '• Notes: ' + data.notes + '\n' +
+        '• Defect Risk: ' + data.defectRisk;
+    }
+  }
+
+  // Context-aware responses using lastCalcData
+  if (lastCalcData && (q.includes('my part') || q.includes('this part') || q.includes('current') || q.includes('this casting'))) {
+    const mat = MATERIAL_KB[lastCalcData.materialName?.split('(')[0]?.trim()] || MATERIAL_KB["Grey Cast Iron"];
+    return '**Analysis for ' + lastCalcData.partName + ':**\n\n' +
+      '• Shape: ' + lastCalcData.shape + '\n' +
+      '• Volume: **' + lastCalcData.volume + ' cm³** | Mass: **' + lastCalcData.mass + ' kg**\n' +
+      '• Pattern: ' + lastCalcData.pattern + '\n' +
+      '• Pour at: **' + mat.pourTemp + '**\n' +
+      '• Shrinkage allowance: **' + mat.shrinkage + '**\n' +
+      '• Key risks: ' + mat.risks.join(', ') + '\n\n' +
+      'Use the quick buttons below for detailed defect/precaution analysis!';
+  }
+  
+  // Generic foundry questions
+  if (q.includes('what is casting') || q.includes('casting process'))
+    return '**Casting** is a manufacturing process where molten metal is poured into a mold cavity and allowed to solidify.\n\n**Key steps:**\n1. Pattern making\n2. Mold preparation (sand/investment/die)\n3. Melting & pouring\n4. Solidification\n5. Shakeout & fettling\n6. Inspection & heat treatment\n\n*(Ref: P.N. Rao, Manufacturing Technology)*';
+  
+  if (q.includes('chvorinov'))
+    return '**Chvorinov\'s Rule:**\n\n**t = C × (V/SA)²**\n\nWhere:\n• t = solidification time\n• V = volume of casting\n• SA = surface area\n• C = mold constant (depends on mold material & metal)\n\n**Application:** Riser must have higher modulus (V/SA) than casting to freeze last.\n\n*(Ref: Heine, Ch.12)*';
+  
+  if (q.includes('sand') && (q.includes('property') || q.includes('test')))
+    return '**Molding Sand Properties (Ref: P.L. Jain Ch.3):**\n\n1. **Permeability:** 25–80 AFS units (higher for steel)\n2. **Green Strength:** 5–15 kPa\n3. **Moisture:** 3–5% (green sand)\n4. **Clay content:** 8–12% bentonite\n5. **Grain Fineness:** AFS 55–70 (finer = better finish)\n6. **Flowability:** Must pack around pattern\n7. **Collapsibility:** Must allow shrinkage\n\n**Tests:** Permeability meter, universal sand tester, sieve analysis, moisture teller';
+
+  // Fallback
+  return 'I understand your question about **"' + userText + '"**.\n\nI can best help with:\n• Material properties & pouring temperatures\n• Defect analysis (calculate a part first)\n• Precautions checklist\n• Gating & riser design principles\n• Pattern types\n• Sand properties\n\nTry asking about a specific material, defect, or use the quick buttons after calculating a part!';
+}
+
+// ══════════════════════════════════════════════
+// GENERATE ENGINEERING ANALYSIS (15 points each)
+// ══════════════════════════════════════════════
+function generateDefectAnalysis() {
+  if (!lastCalcData) return 'Calculate a part first!';
+  const matKey = Object.keys(MATERIAL_KB).find(k => lastCalcData.materialName?.includes(k.split(' ')[0])) || "Grey Cast Iron";
+  const mat = MATERIAL_KB[matKey];
+  const vol = parseFloat(lastCalcData.volume) || 100;
+  const shape = (lastCalcData.shape || '').toLowerCase();
+  const isHollow = shape.includes('hollow') || shape.includes('housing') || shape.includes('box');
+  const isCylindrical = shape.includes('cylinder') || shape.includes('gear') || shape.includes('disc');
+  const isComplex = shape.includes('valve') || shape.includes('impeller') || shape.includes('housing');
+  
+  let analysis = '## 🔍 DEFECT ANALYSIS — ' + lastCalcData.partName + '\n';
+  analysis += '*Material: ' + matKey + ' | Vol: ' + lastCalcData.volume + ' cm³ | Pattern: ' + lastCalcData.pattern + '*\n\n';
+  
+  const defects = [
+    { ...DEFECT_DB.shrinkage, likelihood: vol > 500 ? "HIGH" : "MEDIUM" },
+    { ...DEFECT_DB.porosity, likelihood: mat.risks.some(r => r.toLowerCase().includes('poros')) ? "HIGH" : "MEDIUM" },
+    { ...DEFECT_DB.misrun, likelihood: vol > 1000 || isComplex ? "HIGH" : "LOW" },
+    { ...DEFECT_DB.hotTear, likelihood: isComplex || isHollow ? "HIGH" : "LOW" },
+    { ...DEFECT_DB.sandInclusion, likelihood: "MEDIUM" },
+    { ...DEFECT_DB.coldShut, likelihood: isComplex ? "HIGH" : "LOW" },
+    { ...DEFECT_DB.metalPenetration, likelihood: vol > 500 ? "MEDIUM" : "LOW" },
+    { ...DEFECT_DB.scab, likelihood: isCylindrical ? "LOW" : "MEDIUM" },
+    { ...DEFECT_DB.swell, likelihood: vol > 1000 ? "HIGH" : "LOW" },
+    { ...DEFECT_DB.shift, likelihood: lastCalcData.pattern.includes('Two') ? "MEDIUM" : "LOW" },
+    { ...DEFECT_DB.blowhole, likelihood: "MEDIUM" },
+    { ...DEFECT_DB.oxideDross, likelihood: matKey.includes('Alum') ? "HIGH" : "MEDIUM" },
+    { ...DEFECT_DB.finFlash, likelihood: "LOW" },
+    { ...DEFECT_DB.roughSurface, likelihood: "LOW" },
+    { ...DEFECT_DB.rattail, likelihood: isCylindrical ? "LOW" : "MEDIUM" },
+  ];
+  
+  defects.forEach((d, i) => {
+    const icon = d.likelihood === "HIGH" ? "🔴" : d.likelihood === "MEDIUM" ? "🟡" : "🟢";
+    analysis += '**' + (i+1) + '. ' + d.name + '** ' + icon + ' ' + d.likelihood + '\n';
+    analysis += '   Cause: ' + d.cause + '\n';
+    analysis += '   Location: ' + d.location + '\n';
+    analysis += '   Prevention: ' + d.prevention + '\n';
+    analysis += '   *(Ref: ' + d.ref + ')*\n\n';
+  });
+  
+  analysis += '\n**Material-Specific Risks for ' + matKey + ':**\n';
+  mat.risks.forEach(r => { analysis += '• ' + r + '\n'; });
+  
+  return analysis;
+}
+
+function generatePrecautions() {
+  if (!lastCalcData) return 'Calculate a part first!';
+  const matKey = Object.keys(MATERIAL_KB).find(k => lastCalcData.materialName?.includes(k.split(' ')[0])) || "Grey Cast Iron";
+  const mat = MATERIAL_KB[matKey];
+  const patKey = Object.keys(PATTERN_KB).find(k => lastCalcData.pattern?.includes(k)) || "Two Piece";
+  const pat = PATTERN_KB[patKey];
+  
+  return '## ⚠️ CASTING PRECAUTIONS — ' + lastCalcData.partName + '\n' +
+    '*15-Point Checklist (Ref: P.L. Jain, Heine)*\n\n' +
+    '**1. Mold Sand Preparation**\nUse silica sand AFS 55-70, bentonite 8-12%, moisture 3-5%. Test permeability (target: 40-80 AFS units).\n\n' +
+    '**2. Sand Ramming**\nRam to hardness 70-80. Too soft → swell/shift. Too hard → poor permeability → gas defects.\n\n' +
+    '**3. Pattern Preparation**\nApply shrinkage allowance of **' + mat.shrinkage + '** for ' + matKey + '. Draft angle: **' + mat.draft + '**. Pattern type: ' + patKey + ' — ' + pat.notes + '\n\n' +
+    '**4. Core Setting**\nEnsure core prints are adequate. Core venting is critical — use wax vents. Check core shift clearance.\n\n' +
+    '**5. Gating System Design**\nUse gating ratio **' + mat.gatingRatio + '**. Sprue area: ' + lastCalcData.sprue + ' cm². Runner: ' + lastCalcData.runner + ' cm². Use ceramic filter in runner.\n\n' +
+    '**6. Riser Design**\nRiser volume: **' + lastCalcData.riser + ' cm³** (15% of casting vol). Place at thickest section. Riser modulus > 1.2 × casting modulus.\n\n' +
+    '**7. Pouring Temperature**\nPour ' + matKey + ' at **' + mat.pourTemp + '**. Verify with pyrometer. Superheat 50-100°C above liquidus.\n\n' +
+    '**8. Pouring Speed & Technique**\nPour time: **' + lastCalcData.pourTime + ' seconds**. Maintain steady stream. Avoid turbulence — keep ladle close to pouring cup.\n\n' +
+    '**9. Mold Coating**\nApply graphite/zircon wash (baumé 30-40) on mold surface. Dry coat before closing mold. Prevents metal penetration.\n\n' +
+    '**10. Venting**\nProvide vent holes (dia 3-5mm) at highest points. Space 30-50mm apart on cope. Prevents gas entrapment.\n\n' +
+    '**11. Metal Treatment**\n' + mat.inoculant + '. Skim dross before pouring. Degassing if needed.\n\n' +
+    '**12. Mold Closing & Clamping**\nAlign cope-drag with pins. Apply clamps/weights to prevent mold lift. Weight = metallostatic pressure × projected area.\n\n' +
+    '**13. Cooling & Solidification**\nAllow directional solidification toward riser. Estimated yield: **' + lastCalcData.yieldPct + '**. Do not disturb during solidification.\n\n' +
+    '**14. Shakeout Timing**\nShakeout after full solidification. For ' + matKey + ': wait minimum 30 min for small parts, 2+ hours for large. Avoid hot shakeout → hot tear risk.\n\n' +
+    '**15. Post-Casting**\nHeat treatment: ' + mat.heatTreat + '. Inspect: visual, dimensional, NDT (UT/RT for critical parts). Remove gates, fettle, grind parting line flash.\n\n' +
+    '---\n*References: P.L. Jain "Principles of Foundry Technology", Heine/Loper/Rosenthal "Principles of Metal Casting", P.N. Rao "Manufacturing Technology"*';
+}
+
+function generateFullReport() {
+  if (!lastCalcData) return 'Calculate a part first!';
+  const matKey = Object.keys(MATERIAL_KB).find(k => lastCalcData.materialName?.includes(k.split(' ')[0])) || "Grey Cast Iron";
+  const mat = MATERIAL_KB[matKey];
+  
+  return '## 📄 CASTING PROCESS REPORT — ' + lastCalcData.partName + '\n' +
+    '*Auto-generated by Vishvakarma Foundry AI*\n\n' +
+    '### 1. EXECUTIVE SUMMARY\n' +
+    'Part: **' + lastCalcData.partName + '** (' + lastCalcData.cat + ')\n' +
+    'Volume: **' + lastCalcData.volume + ' cm³** | Mass: **' + lastCalcData.mass + ' kg**\n' +
+    'Material: **' + matKey + '** | Pattern: **' + lastCalcData.pattern + '**\n' +
+    'Estimated Yield: **' + lastCalcData.yieldPct + '**\n\n' +
+    '### 2. PATTERN DESIGN\n' +
+    '• Type: ' + lastCalcData.pattern + ' pattern\n' +
+    '• Shrinkage: ' + mat.shrinkage + ' linear\n' +
+    '• Draft: ' + mat.draft + ' external, +1° internal\n' +
+    '• Machining allowance: 1.5-3mm (depending on surface)\n\n' +
+    '### 3. GATING SYSTEM\n' +
+    '• Ratio: ' + mat.gatingRatio + '\n' +
+    '• Sprue: ' + lastCalcData.sprue + ' cm² | Runner: ' + lastCalcData.runner + ' cm² | Gate: ' + lastCalcData.gate + ' cm²\n' +
+    '• Pour time: ' + lastCalcData.pourTime + ' seconds\n' +
+    '• Use ceramic filter in runner for clean metal\n\n' +
+    '### 4. RISER DESIGN\n' +
+    '• Riser volume: ' + lastCalcData.riser + ' cm³ (15% of casting)\n' +
+    '• Place at thickest section\n' +
+    '• Modulus check: Riser M > 1.2 × Casting M\n' +
+    '• Feeding distance: 4.5T (plate geometry)\n\n' +
+    '### 5. MELTING & POURING\n' +
+    '• Pouring temperature: **' + mat.pourTemp + '**\n' +
+    '• Treatment: ' + mat.inoculant + '\n' +
+    '• Ladle: pre-heated, bottom-pour preferred\n\n' +
+    '### 6. DEFECT PREVENTION\n' +
+    'Top risks for ' + matKey + ': ' + mat.risks.join(', ') + '\n' +
+    '• Use proper venting, sand conditioning, and controlled pouring\n\n' +
+    '### 7. POST-CASTING\n' +
+    '• Heat treatment: ' + mat.heatTreat + '\n' +
+    '• Inspection: Visual + Dimensional + NDT\n' +
+    '• Fettling: Remove gates, grind flash\n\n' +
+    '---\n*Report generated per Heine/Loper/Rosenthal & P.L. Jain standards*';
+}
+
+// ══════════════════════════════════════════════
+// GEMINI PROMPT BUILDER + CLIPBOARD COPY
+// ══════════════════════════════════════════════
+function buildGeminiPrompt(type) {
+  if (!lastCalcData) return '';
+  const ctx = getContextStr();
+  if (type === 'defects') {
+    return 'You are a senior foundry casting engineer with 30+ years experience.\n\nCASTING PARAMETERS:\n' + ctx + '\n' +
+      'Provide DETAILED DEFECT ANALYSIS with 15 likely casting defects for this specific part.\nFor each defect: name, cause specific to this geometry, location on the part, severity, prevention method.\nAlso provide material-specific metallurgical risks.\nInclude references from Heine Loper Rosenthal and P.L. Jain.\nGenerate a 2D gating layout diagram showing where riser, runner, sprue, and gates should be placed for this specific part shape.';
+  } else if (type === 'precautions') {
+    return 'You are a foundry engineer.\n\nCASTING PARAMETERS:\n' + ctx + '\n' +
+      'Provide a 15-POINT CASTING PRECAUTION CHECKLIST specific to this part.\nCover: sand prep, pattern allowances, core, gating, risering, pouring temp and speed, mold coating, venting, metal treatment, clamping, cooling, shakeout, heat treatment, inspection, safety.\nGive exact numbers and specifications.\nInclude references to P.L. Jain and Heine textbooks.';
+  } else {
+    return 'You are a foundry engineer preparing a complete casting report.\n\nCASTING PARAMETERS:\n' + ctx + '\n' +
+      'Generate a COMPLETE CASTING REPORT with sections: Executive Summary, Pattern Design, Gating System Design (with ASCII diagram), Riser Design, Defect Prediction, Melting & Pouring, Post-Casting Operations, Cost Estimation.\nAlso generate a description of a 3D image showing this ' + lastCalcData.shape + ' part with the gating system (sprue, runner, gates, risers) attached.\nBe detailed enough for production use.';
+  }
+}
+
+function copyToClipboard(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).catch(() => fallbackCopy(text));
+  } else {
+    fallbackCopy(text);
+  }
+}
+
+function fallbackCopy(text) {
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.style.cssText = 'position:fixed;left:-9999px;opacity:0';
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); } catch(e) { console.warn('Copy failed:', e); }
+  document.body.removeChild(ta);
+}
+
+// ══════════════════════════════════════════════
+// SEND MESSAGE HANDLER
+// ══════════════════════════════════════════════
+async function sendChatMsg() {
+  if (chatBusy) return;
+  const input = document.getElementById('chatInput');
+  if (!input) return;
+  const text = input.value.trim();
+  if (!text) return;
+  
+  chatBusy = true;
+  input.value = '';
+  const sendBtn = document.getElementById('chatSendBtn');
+  if (sendBtn) sendBtn.disabled = true;
+  
+  try {
+    addChatMsg(text, 'user');
+    setStatus('Thinking...', 'ember');
+    showTyping();
+    
+    // Simulate AI thinking delay (1-2.5 seconds)
+    await aiDelay(1000, 2500);
+    hideTyping();
+    
+    const response = getSmartResponse(text);
+    addChatMsg(formatAI(response), 'ai');
+    setStatus('Online', 'green-forge');
+  } catch (err) {
+    console.error('[Vishvakarma AI] sendChatMsg error:', err);
+    hideTyping();
+    addChatMsg('⚠ Something went wrong. Please try again.', 'system');
+    setStatus('Ready', 'green-forge');
+  } finally {
+    chatBusy = false;
+    if (sendBtn) sendBtn.disabled = false;
+  }
+}
+
+// ══════════════════════════════════════════════
+// QUICK ASK BUTTONS (with thinking animation)
+// ══════════════════════════════════════════════
+async function quickAsk(type) {
+  if (!lastCalcData) { addChatMsg('⚠ Calculate a part first before using quick actions.', 'system'); return; }
+  if (chatBusy) return;
+  chatBusy = true;
+  
+  const sendBtn = document.getElementById('chatSendBtn');
+  if (sendBtn) sendBtn.disabled = true;
+  
+  try {
+    const label = type.charAt(0).toUpperCase() + type.slice(1);
+    addChatMsg(label + ' analysis for <strong>' + lastCalcData.partName + '</strong>', 'user');
+    setStatus('Analyzing...', 'ember');
+    showTyping();
+    
+    // Simulate analysis time (2-4 seconds)
+    await aiDelay(2000, 4000);
+    hideTyping();
+    
+    let response = '';
+    if (type === 'defects') response = generateDefectAnalysis();
+    else if (type === 'precautions') response = generatePrecautions();
+    else if (type === 'report') response = generateFullReport();
+    
+    addChatMsg(formatAI(response), 'ai');
+    
+    // Auto-copy Gemini prompt to clipboard
+    const geminiPrompt = buildGeminiPrompt(type);
+    copyToClipboard(geminiPrompt);
+    addChatMsg('📋 <strong>Gemini prompt copied to clipboard!</strong> Open <a href="https://gemini.google.com/app" target="_blank" style="color:var(--cyan);text-decoration:underline;">Gemini</a> and paste (Ctrl+V) for AI-generated images & deeper analysis.', 'system');
+    
+    setStatus('Online', 'green-forge');
+  } catch (err) {
+    console.error('[Vishvakarma AI] quickAsk error:', err);
+    hideTyping();
+    addChatMsg('⚠ Analysis failed. Please try again.', 'system');
+    setStatus('Ready', 'green-forge');
+  } finally {
+    chatBusy = false;
+    if (sendBtn) sendBtn.disabled = false;
+  }
+}
+
+function getContextStr() {
+  if (!lastCalcData) return '';
+  return 'Part: ' + lastCalcData.partName + ' | Category: ' + lastCalcData.cat + '\n' +
+    'Pattern: ' + lastCalcData.pattern + ' | Shape: ' + lastCalcData.shape + '\n' +
+    'Material: ' + lastCalcData.materialName + ' (' + lastCalcData.density + ' g/cm3)\n' +
+    'Volume: ' + lastCalcData.volume + ' cm3 | Mass: ' + lastCalcData.mass + ' kg\n' +
+    'Sprue: ' + lastCalcData.sprue + ' cm2 | Runner: ' + lastCalcData.runner + ' cm2 | Gate: ' + lastCalcData.gate + ' cm2\n' +
+    'Riser: ' + lastCalcData.riser + ' cm3 | Pour Time: ' + lastCalcData.pourTime + 's | Yield: ' + lastCalcData.yieldPct + '\n';
+}
+
+// ── MODAL BUTTON HANDLERS ──
+function triggerDefectAnalysis() {
+  if (!lastCalcData) { alert('Calculate volume first!'); return; }
+  if (!chatOpen) toggleAIChat();
+  setTimeout(() => quickAsk('defects'), 300);
+}
+function sendPartToChat() {
+  if (!lastCalcData) { alert('Calculate volume first!'); return; }
+  if (!chatOpen) toggleAIChat();
+  setTimeout(() => quickAsk('precautions'), 300);
+}
+
+// ══════════════════════════════════════════════
+// CAPTURE CALC DATA + ENABLE BUTTONS
+// ══════════════════════════════════════════════
+const _origCompute = computePartVolume;
+computePartVolume = function() {
+  _origCompute();
+  if (!currentPart) return;
+  const matEl = document.getElementById('modalMaterial');
+  if (!matEl) return;
+  lastCalcData = {
+    partName: currentPart.name, pattern: currentPart.pattern, cat: currentPart.cat,
+    shape: getPartGeometry(currentPart.name).shape,
+    volume: document.getElementById('r-vol')?.textContent || '0',
+    mass: document.getElementById('r-mass')?.textContent || '0',
+    density: parseFloat(matEl.value) || 7.15,
+    materialName: matEl.selectedOptions[0]?.textContent || 'Grey Cast Iron',
+    pourTime: document.getElementById('r-pour')?.textContent || '0',
+    yieldPct: document.getElementById('r-yield')?.textContent || '0%',
+    sprue: document.getElementById('r-sprue')?.textContent || '0',
+    runner: document.getElementById('r-runner')?.textContent || '0',
+    gate: document.getElementById('r-gate')?.textContent || '0',
+    riser: document.getElementById('r-riser')?.textContent || '0',
+  };
+  ['btnDefects','btnPrecautions','btnFullReport','btnDiagram','btnGemini'].forEach(id => {
+    const btn = document.getElementById(id);
+    if (btn) { btn.disabled = false; btn.classList.add('ready'); }
+  });
+  const notif = document.getElementById('chatNotif');
+  if (notif) notif.style.display = 'block';
+  if (chatOpen) addChatMsg('⚡ Calculated <strong>' + lastCalcData.partName + '</strong> — Vol: ' + lastCalcData.volume + ' cm³, Mass: ' + lastCalcData.mass + ' kg. Quick buttons activated!', 'system');
+};
+// ── OPEN GEMINI DIRECTLY ──
+function openGeminiDirect() {
+  if (!lastCalcData) { alert('Calculate volume first!'); return; }
+  const prompt = buildGeminiPrompt('report');
+  copyToClipboard(prompt);
+  addChatMsg('📋 <strong>Full Gemini prompt copied!</strong> Opening Gemini...', 'system');
+  setTimeout(() => window.open('https://gemini.google.com/app', '_blank'), 500);
+}
+
+// ══════════════════════════════════════════════
+// GATING DIAGRAM (SVG — instant, no AI)
+// ══════════════════════════════════════════════
+function triggerGatingDiagram() {
+  if (!lastCalcData) { alert('Calculate volume first!'); return; }
+  const container = document.getElementById('gatingDiagram');
+  const svgDiv = document.getElementById('gatingDiagramSVG');
+  container.style.display = 'block';
+  const shape = (lastCalcData.shape || '').toLowerCase();
+  const partName = lastCalcData.partName;
+  const sprue = lastCalcData.sprue, runner = lastCalcData.runner, riser = lastCalcData.riser;
+  const pattern = (lastCalcData.pattern || '').toLowerCase();
+  let castingPath, castingLabel;
+  if (shape.includes('cylinder')||shape.includes('gear')||shape.includes('pulley')||shape.includes('disc')||shape.includes('ring')||shape.includes('hollow')) {
+    castingPath = '<ellipse cx="190" cy="260" rx="55" ry="30" fill="none" stroke="#FFD700" stroke-width="2" stroke-dasharray="4,2"/><ellipse cx="190" cy="230" rx="55" ry="30" fill="rgba(255,215,0,0.08)" stroke="#FFD700" stroke-width="2"/><line x1="135" y1="230" x2="135" y2="260" stroke="#FFD700" stroke-width="2"/><line x1="245" y1="230" x2="245" y2="260" stroke="#FFD700" stroke-width="2"/>';
+    castingLabel = 'CASTING (Cylindrical)';
+  } else if (shape.includes('sphere')||shape.includes('ball')) {
+    castingPath = '<circle cx="190" cy="245" r="40" fill="rgba(255,215,0,0.08)" stroke="#FFD700" stroke-width="2"/>';
+    castingLabel = 'CASTING (Spherical)';
+  } else if (shape.includes('cone')||shape.includes('bevel')||shape.includes('truncat')) {
+    castingPath = '<polygon points="160,270 220,270 205,220 175,220" fill="rgba(255,215,0,0.08)" stroke="#FFD700" stroke-width="2"/>';
+    castingLabel = 'CASTING (Conical)';
+  } else {
+    castingPath = '<rect x="145" y="220" width="90" height="55" rx="4" fill="rgba(255,215,0,0.08)" stroke="#FFD700" stroke-width="2"/>';
+    castingLabel = 'CASTING (Block)';
+  }
+  let riserSVG = '<rect x="176" y="188" width="28" height="34" rx="3" fill="rgba(0,212,255,0.12)" stroke="#00D4FF" stroke-width="1.5"/><text x="190" y="210" text-anchor="middle" fill="#00D4FF" font-size="8" font-family="monospace">RISER</text><text x="190" y="185" text-anchor="middle" fill="#00D4FF" font-size="7" font-family="monospace">' + riser + ' cm3</text>';
+  if (pattern.includes('cope')||pattern.includes('two piece')) {
+    riserSVG += '<rect x="252" y="228" width="24" height="28" rx="3" fill="rgba(0,212,255,0.08)" stroke="#00D4FF" stroke-width="1" stroke-dasharray="3,2"/><text x="264" y="247" text-anchor="middle" fill="#00D4FF" font-size="7" font-family="monospace">BLIND</text><text x="264" y="257" text-anchor="middle" fill="#00D4FF" font-size="6" font-family="monospace">RISER</text>';
+  }
+  svgDiv.innerHTML = '<svg viewBox="0 0 380 340" class="gating-svg" xmlns="http://www.w3.org/2000/svg"><defs><linearGradient id="metalGrad" x1="0%" y1="0%" x2="0%" y2="100%"><stop offset="0%" stop-color="#FF8C00" stop-opacity="0.6"/><stop offset="100%" stop-color="#FF4500" stop-opacity="0.2"/></linearGradient><marker id="arrowhead" markerWidth="6" markerHeight="4" refX="0" refY="2" orient="auto"><polygon points="0 0,6 2,0 4" fill="#504E6A"/></marker></defs>' +
+    '<text x="190" y="18" text-anchor="middle" fill="#FFD700" font-size="10" font-family="monospace" letter-spacing="3">' + partName.toUpperCase() + '</text>' +
+    '<polygon points="170,30 210,30 200,50 180,50" fill="url(#metalGrad)" stroke="#FF8C00" stroke-width="1.5"/><text x="190" y="43" text-anchor="middle" fill="#000" font-size="7" font-weight="bold" font-family="monospace">POUR</text>' +
+    '<rect x="185" y="50" width="10" height="70" fill="rgba(255,140,0,0.2)" stroke="#FF8C00" stroke-width="1.5"/><text x="210" y="85" fill="#FF8C00" font-size="7" font-family="monospace">SPRUE</text><text x="210" y="95" fill="#FF6B00" font-size="7" font-family="monospace">' + sprue + ' cm2</text>' +
+    '<rect x="178" y="118" width="24" height="12" rx="3" fill="rgba(255,140,0,0.15)" stroke="#FF8C00" stroke-width="1"/><text x="190" y="127" text-anchor="middle" fill="#FF8C00" font-size="6" font-family="monospace">WELL</text>' +
+    '<rect x="80" y="130" width="220" height="9" fill="rgba(57,255,20,0.1)" stroke="#39FF14" stroke-width="1.5"/><text x="80" y="127" fill="#39FF14" font-size="7" font-family="monospace">RUNNER ' + runner + ' cm2</text>' +
+    '<line x1="40" y1="140" x2="340" y2="140" stroke="#9B98AA" stroke-width="0.8" stroke-dasharray="8,4"/><text x="345" y="143" fill="#9B98AA" font-size="7" font-family="monospace">P/L</text>' +
+    '<rect x="130" y="139" width="8" height="82" fill="rgba(255,68,170,0.12)" stroke="#FF44AA" stroke-width="1"/><text x="115" y="185" fill="#FF44AA" font-size="7" font-family="monospace" transform="rotate(-90,115,185)">GATE</text>' +
+    '<rect x="242" y="139" width="8" height="82" fill="rgba(255,68,170,0.12)" stroke="#FF44AA" stroke-width="1"/>' +
+    castingPath +
+    '<text x="190" y="290" text-anchor="middle" fill="#FFD700" font-size="8" font-family="monospace" font-weight="bold">' + castingLabel + '</text>' +
+    '<text x="190" y="302" text-anchor="middle" fill="#E8A800" font-size="7" font-family="monospace">' + lastCalcData.volume + ' cm3 | ' + lastCalcData.mass + ' kg</text>' +
+    riserSVG +
+    '<text x="20" y="100" fill="#504E6A" font-size="8" font-family="monospace" font-weight="bold">COPE</text><text x="20" y="170" fill="#504E6A" font-size="8" font-family="monospace" font-weight="bold">DRAG</text>' +
+    '<text x="310" y="200" fill="#504E6A" font-size="7" font-family="monospace">SOLIDIFICATION</text><line x1="330" y1="205" x2="330" y2="270" stroke="#504E6A" stroke-width="1" marker-end="url(#arrowhead)"/>' +
+    '<rect x="20" y="310" width="8" height="8" fill="#FF8C00" rx="1"/><text x="32" y="317" fill="#9B98AA" font-size="7" font-family="monospace">Sprue</text>' +
+    '<rect x="90" y="310" width="8" height="8" fill="#FF44AA" rx="1"/><text x="102" y="317" fill="#9B98AA" font-size="7" font-family="monospace">Gate</text>' +
+    '<rect x="150" y="310" width="8" height="8" fill="#00D4FF" rx="1"/><text x="162" y="317" fill="#9B98AA" font-size="7" font-family="monospace">Riser</text>' +
+    '<rect x="210" y="310" width="8" height="8" fill="#FFD700" rx="1"/><text x="222" y="317" fill="#9B98AA" font-size="7" font-family="monospace">Casting</text></svg>';
+  container.scrollIntoView({ behavior:'smooth', block:'nearest' });
+  if (chatOpen) addChatMsg('📐 Gating diagram for <strong>' + partName + '</strong> — scroll up in modal to see it!', 'system');
+}
+
+</script>
+</body>
+</html>

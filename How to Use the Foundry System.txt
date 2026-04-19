@@ -1,0 +1,14 @@
+How to Use the Foundry System
+
+Step 1: Click on Part Library from the top navigation bar.
+
+Step 2: Select the required part (for example, a bevel gear) and enter the necessary dimensions.
+
+Step 3: Click on Calculate Volume to generate the volume and related casting data.
+
+Step 4: Click on Show Gating Diagram then scroll down to view the complete diagram showing the placement of the riser, runner, and sprue.
+
+Step 5: Click on Analyze Defects. After that, go to the Foundry AI section (identified by the robot icon on the left side). All possible defects will be displayed there, and you can also ask questions directly to the AI for further clarification.
+
+Alternative Option:
+If the Foundry AI does not work properly, click on Gemini (also available in the AI chat box). When you calculate the volume, a prompt is automatically copied to your clipboard. Simply press Ctrl + V to paste it into Gemini, and you will receive complete information about defects, solutions, and analysis.

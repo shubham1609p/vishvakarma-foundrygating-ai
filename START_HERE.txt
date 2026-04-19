@@ -1,0 +1,218 @@
+╔════════════════════════════════════════════════════════════════════════════════╗
+║                                                                                ║
+║                   🚀 HOW TO RUN THE CHATBOT — EASY STEPS                      ║
+║                                                                                ║
+╚════════════════════════════════════════════════════════════════════════════════╝
+
+WHAT YOU NEED:
+  ✓ Python 3.7+ (download from https://www.python.org/)
+  ✓ The files in: c:\Users\shubh\Downloads\files (2)
+
+════════════════════════════════════════════════════════════════════════════════
+
+STEP 1️⃣  — INSTALL PYTHON (if not already installed)
+
+  Download: https://www.python.org/downloads/
+  
+  Important: Check "Add Python to PATH" during installation!
+
+════════════════════════════════════════════════════════════════════════════════
+
+STEP 2️⃣  — OPEN COMMAND PROMPT
+
+  Windows: Press Win+R, type "cmd", press Enter
+  
+  Navigate to your files folder:
+    cd Downloads\files\ (2)
+  
+  (Note the space in the folder name - you may need quotes)
+
+════════════════════════════════════════════════════════════════════════════════
+
+STEP 3️⃣  — RUN THE BACKEND SERVER
+
+  Option A (EASIEST — Windows only):
+    Double-click: run_backend.bat
+    
+    This will:
+    ✓ Install required packages
+    ✓ Start the backend server
+    ✓ Show you when it's ready
+
+  Option B (Manual):
+    Run these commands:
+    
+    # Install packages (one time only)
+    pip install flask google-generativeai python-dotenv flask-cors
+    
+    # Start the server
+    python backend.py
+
+════════════════════════════════════════════════════════════════════════════════
+
+STEP 4️⃣  — VERIFY BACKEND IS RUNNING
+
+  You should see this message:
+  
+    ════════════════════════════════════════════════════════════
+          VISHVAKARMA FOUNDRY AI — BACKEND SERVER
+    ════════════════════════════════════════════════════════════
+    [START] Port: 5000
+    [START] Debug mode: False
+    [START] AI Model: gemini-2.0-flash
+    [START] ✅ Server ready!
+    ════════════════════════════════════════════════════════════
+
+  If you see this, the backend is ready! ✅
+
+════════════════════════════════════════════════════════════════════════════════
+
+STEP 5️⃣  — OPEN THE WEB INTERFACE
+
+  1. Open your web browser (Chrome, Firefox, Safari, Edge)
+  
+  2. Go to: file:///c:/Users/shubh/Downloads/files (2)/parts_library.html
+     
+     Or navigate through Files → Downloads → files (2) → parts_library.html
+  
+  3. Wait for the intro animation to complete
+  
+  4. You'll see the Vishvakarma Foundry interface
+
+════════════════════════════════════════════════════════════════════════════════
+
+STEP 6️⃣  — TEST THE CHATBOT
+
+  1. Click the 🤖 icon in the bottom-right corner
+  
+  2. The chat panel opens
+  
+  3. Type a message:
+     "Hello, tell me about casting defects"
+  
+  4. Press Enter or click the send button (→)
+  
+  5. The AI responds! ✨
+
+════════════════════════════════════════════════════════════════════════════════
+
+STEP 7️⃣  — TEST QUICK ACTIONS
+
+  1. Navigate to "🔩 Parts Library" tab
+  
+  2. Click any part (e.g., "Spur Gear")
+  
+  3. Click "⚡ CALCULATE THIS PART"
+  
+  4. Enter some dimensions (or use defaults)
+  
+  5. Click "⚡ CALCULATE VOLUME & GATING"
+  
+  6. After calculation, new buttons appear:
+     🔍 Defect Analysis
+     ⚠️ Precautions
+     📄 Full Report
+     📐 Gating Diagram
+  
+  7. Click any button to see the AI respond!
+
+════════════════════════════════════════════════════════════════════════════════
+
+TROUBLESHOOTING
+
+❌ Backend won't start: "Python not found"
+   → Install Python from https://www.python.org/
+   → Make sure to check "Add Python to PATH"
+   → Restart your command prompt
+
+❌ Error: "ModuleNotFoundError: No module named 'flask'"
+   → Run: pip install flask google-generativeai python-dotenv flask-cors
+   → Try again
+
+❌ Browser can't connect to backend
+   → Is the command prompt still showing "[START] ✅ Server ready!"?
+   → If not, the server crashed - check error message
+   → Try running with: python -u backend.py (for more output)
+
+❌ Chat shows error: "AI service currently unavailable"
+   → Backend is not running
+   → Check Step 3 and 4 above
+   → Restart backend
+
+❌ Chat shows error: "Authentication failed"
+   → API key issue (shouldn't happen with default key)
+   → In production, set: GEMINI_API_KEY=your_real_key
+
+════════════════════════════════════════════════════════════════════════════════
+
+FILES IN YOUR FOLDER
+
+files (2)/
+├── parts_library.html          ← Open this in browser ⭐
+├── index.html                  ← Calculator page
+├── backend.py                  ← Backend server ⭐
+├── run_backend.bat             ← Easy startup (Windows)
+├── test_backend.py             ← Test API (advanced)
+├── README_QUICK_START.md       ← Detailed guide
+└── [other files]
+
+════════════════════════════════════════════════════════════════════════════════
+
+QUICK START (TL;DR)
+
+1. cd Downloads\files\ (2)
+2. run_backend.bat
+3. Open parts_library.html in browser
+4. Click 🤖 icon → chat works!
+
+════════════════════════════════════════════════════════════════════════════════
+
+TESTING CHECKLIST
+
+After starting backend and opening parts_library.html:
+
+□ Chat panel opens when I click 🤖
+□ I can type a message
+□ After pressing Enter, I see "Thinking..." status
+□ AI responds with an answer
+□ I can continue typing more messages
+□ I can click X to close chat
+□ I can calculate a part
+□ After calculation, quick buttons enable
+□ Clicking a quick button shows AI response
+□ Chat doesn't crash or freeze
+□ No red errors in browser console (F12)
+
+If all boxes ✓, the chatbot is working perfectly! 🎉
+
+════════════════════════════════════════════════════════════════════════════════
+
+ADVANCED TESTING
+
+Test the API directly (without web UI):
+
+  Open another command prompt and run:
+    python test_backend.py
+  
+  This starts an interactive chat session where you can test
+  the AI directly.
+
+  Or test one-off examples:
+    python test_backend.py --test
+
+════════════════════════════════════════════════════════════════════════════════
+
+TO STOP THE BACKEND
+
+  In the command prompt where backend.py is running:
+    Press Ctrl+C
+  
+  The backend will shut down gracefully.
+
+════════════════════════════════════════════════════════════════════════════════
+
+🎉 ENJOY YOUR VISHVAKARMA FOUNDRY AI! 🔥⚙️
+
+Questions? Check README_QUICK_START.md for more details.
+
+════════════════════════════════════════════════════════════════════════════════

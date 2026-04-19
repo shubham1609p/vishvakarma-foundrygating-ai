@@ -1,0 +1,876 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Vishvakarma Foundry — Pattern Volume & Gating Calculator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
+  <script src="https://cdn.jsdelivr.net/npm/three@0.153.0/build/three.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+:root{--bg-void:#02030a;--bg-deep:#060812;--bg-panel:#0b0f1e;--bg-card:#0f1425;--bg-hover:#141830;--gold-bright:#FFD700;--gold-mid:#E8A800;--gold-dim:#9B6F00;--gold-glow:rgba(255,215,0,0.15);--gold-glow-strong:rgba(255,215,0,0.35);--ember:#FF4500;--ember-mid:#FF6B00;--ember-dim:rgba(255,69,0,0.3);--cyan:#00D4FF;--cyan-dim:rgba(0,212,255,0.2);--green-forge:#39FF14;--text-primary:#F0EDD8;--text-secondary:#9B98AA;--text-muted:#504E6A;--border:rgba(255,215,0,0.12);--border-bright:rgba(255,215,0,0.35);--panel-shadow:0 8px 40px rgba(0,0,0,0.6),0 0 0 1px var(--border);--font-display:'Cinzel Decorative',serif;--font-body:'Rajdhani',sans-serif;--font-mono:'Share Tech Mono',monospace;--radius:10px;--transition:all 0.25s cubic-bezier(0.4,0,0.2,1);}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:var(--font-body);background:var(--bg-void);color:var(--text-primary);min-height:100vh;overflow-x:hidden;font-size:15px;line-height:1.6;}
+
+/* INTRO */
+#introOverlay{position:fixed;inset:0;z-index:9999;background:var(--bg-void);display:flex;align-items:center;justify-content:center;overflow:hidden;}
+#introCanvas{position:absolute;inset:0;width:100%;height:100%;}
+#introContent{position:relative;z-index:2;text-align:center;display:flex;flex-direction:column;align-items:center;gap:16px;}
+#hammerIcon{width:100px;height:100px;animation:hammerSpin 3s ease-out forwards,hammerFloat 4s 3s ease-in-out infinite;filter:drop-shadow(0 0 20px #FFD700) drop-shadow(0 0 40px #FF4500);}
+@keyframes hammerSpin{0%{transform:rotate(-180deg) scale(0);opacity:0;}60%{transform:rotate(20deg) scale(1.1);opacity:1;}100%{transform:rotate(0deg) scale(1);opacity:1;}}
+@keyframes hammerFloat{0%,100%{transform:translateY(0);}50%{transform:translateY(-10px);}}
+#introSanskrit{font-size:clamp(28px,5vw,52px);color:var(--gold-bright);text-shadow:0 0 20px var(--gold-bright);opacity:0;animation:fadeUp 1s 0.8s ease-out forwards;letter-spacing:6px;}
+#introMain{font-family:var(--font-display);font-size:clamp(24px,6vw,64px);font-weight:900;color:var(--gold-bright);text-shadow:0 0 30px var(--gold-bright),0 0 80px var(--gold-mid),0 0 120px var(--ember);opacity:0;animation:fadeUp 1s 1.2s ease-out forwards;letter-spacing:8px;}
+#introSub{font-family:var(--font-mono);font-size:clamp(11px,1.5vw,16px);color:var(--cyan);letter-spacing:4px;opacity:0;animation:fadeUp 1s 1.6s ease-out forwards;}
+#introTagline{font-size:13px;color:var(--text-secondary);letter-spacing:2px;opacity:0;animation:fadeUp 1s 2s ease-out forwards;}
+#introTeam{font-family:var(--font-mono);font-size:11px;letter-spacing:5px;color:var(--ember);text-shadow:0 0 10px var(--ember);opacity:0;animation:fadeUp 1s 2.3s ease-out forwards;margin-top:8px;}
+#introProgress{width:300px;height:2px;background:rgba(255,215,0,0.1);border-radius:2px;overflow:hidden;margin-top:20px;opacity:0;animation:fadeUp 0.5s 2.5s ease-out forwards;}
+#introProgressBar{height:100%;width:0%;background:linear-gradient(90deg,var(--ember),var(--gold-bright),var(--cyan));border-radius:2px;animation:progressFill 2.5s 2.5s ease-in-out forwards;box-shadow:0 0 10px var(--gold-bright);}
+@keyframes progressFill{to{width:100%;}}
+#introSkip{font-family:var(--font-mono);font-size:11px;letter-spacing:3px;color:var(--text-muted);cursor:pointer;margin-top:10px;transition:var(--transition);opacity:0;animation:fadeUp 0.5s 3s ease-out forwards;}
+#introSkip:hover{color:var(--gold-bright);}
+@keyframes fadeUp{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
+.spark{position:absolute;width:3px;height:3px;border-radius:50%;animation:sparkFly var(--dur,2s) var(--delay,0s) ease-out forwards;opacity:0;}
+@keyframes sparkFly{0%{opacity:1;transform:translate(0,0) scale(1);}100%{opacity:0;transform:translate(var(--tx,50px),var(--ty,-80px)) scale(0);}}
+
+/* APP LAYOUT */
+#app{min-height:100vh;}
+#bgCanvas{position:fixed;inset:0;z-index:0;pointer-events:none;}
+#appHeader{position:sticky;top:0;z-index:100;background:rgba(2,3,10,0.95);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:0 32px;height:64px;display:flex;align-items:center;justify-content:space-between;gap:24px;}
+.header-left{display:flex;align-items:center;gap:14px;}
+.logo-text{display:flex;flex-direction:column;}
+.logo-main{font-family:var(--font-display);font-size:14px;color:var(--gold-bright);letter-spacing:3px;}
+.logo-sub{font-family:var(--font-mono);font-size:10px;color:var(--text-muted);letter-spacing:2px;}
+.header-nav{display:flex;gap:8px;}
+.nav-item{font-family:var(--font-mono);font-size:12px;letter-spacing:2px;padding:8px 18px;border-radius:6px;cursor:pointer;border:1px solid transparent;color:var(--text-secondary);transition:var(--transition);}
+.nav-item:hover,.nav-item.active{color:var(--gold-bright);border-color:var(--border-bright);background:var(--gold-glow);}
+.header-right{display:flex;align-items:center;gap:8px;}
+.status-dot{width:8px;height:8px;border-radius:50%;background:var(--green-forge);box-shadow:0 0 8px var(--green-forge);animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1;}50%{opacity:0.5;}}
+.status-text{font-family:var(--font-mono);font-size:11px;color:var(--green-forge);letter-spacing:2px;}
+
+/* SECTIONS */
+.app-section{display:none;position:relative;z-index:1;}
+.app-section.active{display:block;}
+.section-inner{max-width:1400px;margin:0 auto;padding:32px 24px;}
+.hero-banner{background:linear-gradient(135deg,rgba(255,215,0,0.05),rgba(255,69,0,0.05));border:1px solid var(--border);border-radius:var(--radius);padding:28px 32px;margin-bottom:28px;display:flex;align-items:center;justify-content:space-between;gap:24px;}
+.hero-title{font-family:var(--font-display);font-size:clamp(16px,2.5vw,26px);color:var(--gold-bright);margin-bottom:8px;}
+.accent-gold{color:var(--ember);}
+.hero-desc{color:var(--text-secondary);font-size:14px;}
+.hero-badges{display:flex;gap:8px;flex-wrap:wrap;}
+.badge{font-family:var(--font-mono);font-size:10px;padding:5px 12px;border-radius:20px;border:1px solid var(--border);color:var(--cyan);letter-spacing:1px;}
+.badge-sm{font-family:var(--font-mono);font-size:10px;padding:3px 10px;border-radius:20px;border:1px solid var(--border);color:var(--cyan);letter-spacing:1px;}
+.badge-live{border-color:rgba(57,255,20,0.4);color:var(--green-forge);}
+
+/* CALCULATOR GRID */
+.calc-grid{display:grid;grid-template-columns:1fr 1.4fr 1fr;gap:20px;align-items:start;}
+@media(max-width:1100px){.calc-grid{grid-template-columns:1fr 1fr;}}
+@media(max-width:720px){.calc-grid{grid-template-columns:1fr;}}
+
+/* PANELS */
+.panel{background:var(--bg-panel);border:1px solid var(--border);border-radius:14px;padding:24px;box-shadow:var(--panel-shadow);}
+.panel-header{display:flex;align-items:center;gap:10px;margin-bottom:20px;padding-bottom:14px;border-bottom:1px solid var(--border);}
+.panel-icon{font-size:18px;}
+.panel-header h2{font-family:var(--font-mono);font-size:13px;letter-spacing:2px;color:var(--gold-bright);flex:1;}
+
+/* INPUTS */
+.input-group{margin-bottom:18px;}
+.input-label{font-family:var(--font-mono);font-size:11px;letter-spacing:2px;color:var(--text-muted);display:block;margin-bottom:8px;text-transform:uppercase;}
+.select-wrapper{position:relative;}
+.select-wrapper select{width:100%;padding:11px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-family:var(--font-body);font-size:14px;outline:none;transition:var(--transition);appearance:none;cursor:pointer;}
+.select-wrapper select:focus{border-color:var(--gold-bright);box-shadow:0 0 0 2px var(--gold-glow);}
+.select-wrapper::after{content:'▾';position:absolute;right:12px;top:50%;transform:translateY(-50%);color:var(--gold-mid);pointer-events:none;font-size:12px;}
+.dimensions-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:18px;}
+.dim-input-group{display:flex;flex-direction:column;gap:6px;}
+.dim-input-group label{font-family:var(--font-mono);font-size:10px;letter-spacing:1px;color:var(--text-muted);}
+.dim-input-group input{padding:10px 12px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;color:var(--text-primary);font-family:var(--font-mono);font-size:14px;outline:none;transition:var(--transition);width:100%;}
+.dim-input-group input:focus{border-color:var(--gold-bright);box-shadow:0 0 0 2px var(--gold-glow);}
+
+/* SHAPE SELECTOR */
+.shape-selector{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:4px;}
+.shape-btn{display:flex;flex-direction:column;align-items:center;gap:6px;padding:10px 6px;border-radius:8px;border:1px solid var(--border);background:var(--bg-card);cursor:pointer;transition:var(--transition);color:var(--text-secondary);font-family:var(--font-mono);font-size:10px;letter-spacing:1px;}
+.shape-btn svg{width:32px;height:32px;}
+.shape-btn:hover{border-color:var(--gold-mid);color:var(--gold-mid);}
+.shape-btn.active{border-color:var(--gold-bright);background:var(--gold-glow);color:var(--gold-bright);}
+
+/* BUTTONS */
+.btn-primary{width:100%;padding:14px;background:linear-gradient(135deg,var(--gold-bright),var(--ember));border:none;border-radius:10px;color:#000;font-family:var(--font-mono);font-size:13px;font-weight:700;letter-spacing:2px;cursor:pointer;transition:var(--transition);position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:8px;}
+.btn-primary:hover{opacity:0.92;transform:scale(1.01);box-shadow:0 0 24px var(--gold-glow-strong);}
+.btn-icon{font-size:16px;}
+.btn-glow{position:absolute;inset:0;background:radial-gradient(circle at 50% 50%,rgba(255,255,255,0.15),transparent 70%);opacity:0;transition:opacity 0.3s;}
+.btn-primary:hover .btn-glow{opacity:1;}
+.btn-secondary{padding:10px 16px;background:var(--bg-card);border:1px solid var(--border);border-radius:8px;color:var(--text-secondary);font-family:var(--font-mono);font-size:11px;letter-spacing:1px;cursor:pointer;transition:var(--transition);}
+.btn-secondary:hover{border-color:var(--gold-bright);color:var(--gold-bright);background:var(--gold-glow);}
+
+/* 3D PREVIEW PANEL */
+#shapePreview{position:relative;border-radius:10px;overflow:hidden;background:var(--bg-deep);border:1px solid var(--border);margin-bottom:16px;}
+#threeCanvas{width:100%;height:280px;display:block;}
+#previewOverlay{position:absolute;inset:0;pointer-events:none;}
+.crosshair-h{position:absolute;top:50%;left:0;right:0;height:1px;background:rgba(255,69,0,0.2);}
+.crosshair-v{position:absolute;left:50%;top:0;bottom:0;width:1px;background:rgba(255,69,0,0.2);}
+.corner{position:absolute;width:14px;height:14px;border-color:var(--gold-bright);border-style:solid;opacity:0.5;}
+.corner.tl{top:8px;left:8px;border-width:2px 0 0 2px;}
+.corner.tr{top:8px;right:8px;border-width:2px 2px 0 0;}
+.corner.bl{bottom:8px;left:8px;border-width:0 0 2px 2px;}
+.corner.br{bottom:8px;right:8px;border-width:0 2px 2px 0;}
+#shapeStats{display:flex;align-items:center;justify-content:center;gap:0;padding:10px 0;background:rgba(0,0,0,0.6);position:absolute;bottom:0;left:0;right:0;}
+.stat-item{text-align:center;padding:0 18px;display:flex;flex-direction:column;gap:2px;}
+.stat-item span{font-family:var(--font-mono);font-size:15px;color:var(--gold-bright);font-weight:700;}
+.stat-item small{font-size:9px;color:var(--text-muted);letter-spacing:1px;text-transform:uppercase;}
+.stat-divider{width:1px;height:30px;background:var(--border);}
+
+/* CALC RESULTS */
+.calc-results{margin-top:4px;}
+.calc-results.hidden{display:none;}
+.results-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.result-card{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:12px;text-align:center;}
+.result-val{font-family:var(--font-mono);font-size:18px;color:var(--gold-bright);font-weight:700;}
+.result-key{font-size:10px;color:var(--text-muted);margin-top:3px;letter-spacing:1px;font-family:var(--font-mono);}
+
+/* AI PANEL */
+.ai-container{min-height:200px;display:flex;flex-direction:column;}
+.ai-placeholder{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;text-align:center;color:var(--text-muted);font-size:13px;}
+.placeholder-icon{opacity:0.5;}
+.ai-content{flex:1;overflow-y:auto;padding:4px 0;}
+.ai-content.hidden{display:none;}
+#aiText{font-size:13px;line-height:1.8;color:var(--text-secondary);white-space:pre-wrap;}
+.ai-actions{display:flex;gap:10px;margin-top:16px;padding-top:14px;border-top:1px solid var(--border);}
+.ai-actions.hidden{display:none;}
+.ai-loading{display:flex;flex-direction:column;align-items:center;gap:14px;padding:24px;}
+.ai-loading.hidden{display:none;}
+.loading-orbs{display:flex;gap:10px;}
+.orb{width:10px;height:10px;border-radius:50%;background:var(--gold-bright);animation:orbPulse 1.4s ease-in-out infinite;}
+.orb2{animation-delay:0.2s;}
+.orb3{animation-delay:0.4s;}
+@keyframes orbPulse{0%,100%{transform:scale(0.6);opacity:0.3;}50%{transform:scale(1.2);opacity:1;}}
+.loading-text{font-family:var(--font-mono);font-size:11px;letter-spacing:2px;color:var(--cyan);}
+.loading-bar{width:200px;height:2px;background:rgba(255,215,0,0.1);border-radius:2px;overflow:hidden;}
+.loading-fill{height:100%;background:linear-gradient(90deg,var(--ember),var(--gold-bright));border-radius:2px;animation:loadSweep 2s ease-in-out infinite;}
+@keyframes loadSweep{0%{width:0%;margin-left:0;}50%{width:80%;}100%{width:0%;margin-left:100%;}}
+
+/* PARTS SECTION */
+.parts-controls{display:flex;flex-direction:column;gap:14px;margin-bottom:24px;}
+.parts-controls input{width:100%;max-width:500px;padding:12px 18px;background:var(--bg-panel);border:1px solid var(--border);border-radius:var(--radius);color:var(--text-primary);font-family:var(--font-body);font-size:15px;outline:none;transition:var(--transition);}
+.parts-controls input:focus{border-color:var(--gold-bright);box-shadow:0 0 0 2px var(--gold-glow);}
+.category-filters{display:flex;flex-wrap:wrap;gap:8px;}
+.cat-btn{font-family:var(--font-mono);font-size:11px;padding:6px 14px;border-radius:20px;border:1px solid var(--border);color:var(--text-secondary);cursor:pointer;transition:var(--transition);letter-spacing:1px;}
+.cat-btn:hover,.cat-btn.active{color:var(--gold-bright);border-color:var(--gold-bright);background:var(--gold-glow);}
+.parts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px;}
+.part-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;cursor:pointer;transition:var(--transition);position:relative;overflow:hidden;}
+.part-card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:var(--part-color,var(--gold-bright));opacity:0.6;}
+.part-card:hover{border-color:var(--part-color,var(--gold-bright));background:var(--bg-hover);transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,0.4);}
+.part-icon{font-size:28px;margin-bottom:10px;}
+.part-name{font-weight:600;font-size:15px;color:var(--text-primary);margin-bottom:4px;}
+.part-category{font-family:var(--font-mono);font-size:10px;color:var(--part-color,var(--gold-bright));letter-spacing:2px;margin-bottom:4px;}
+.part-pattern{font-size:12px;color:var(--text-muted);}
+
+/* ABOUT */
+.about-section{text-align:center;padding:60px 24px;}
+.vishvakarma-emblem{margin:0 auto 32px;}
+.about-title{font-family:var(--font-display);font-size:clamp(20px,3vw,36px);color:var(--gold-bright);margin-bottom:20px;}
+.about-verse{font-size:15px;color:var(--text-secondary);max-width:680px;margin:0 auto 40px;line-height:1.9;font-style:italic;}
+.about-cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:20px;max-width:900px;margin:0 auto 48px;}
+.about-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:28px;text-align:left;}
+.about-card-icon{font-size:32px;margin-bottom:14px;}
+.about-card h3{color:var(--gold-bright);margin-bottom:10px;font-size:16px;}
+.about-card p{color:var(--text-secondary);font-size:14px;line-height:1.7;}
+.team-banner{background:linear-gradient(135deg,rgba(255,215,0,0.08),rgba(255,69,0,0.08));border:1px solid var(--border-bright);border-radius:var(--radius);padding:24px 40px;display:inline-block;}
+.team-title{font-family:var(--font-display);font-size:20px;color:var(--gold-bright);}
+.team-subtitle{font-family:var(--font-mono);font-size:12px;color:var(--text-muted);margin-top:6px;letter-spacing:2px;}
+
+footer{background:rgba(2,3,10,0.95);border-top:1px solid var(--border);padding:20px 32px;text-align:center;position:relative;z-index:1;}
+.footer-inner{font-family:var(--font-mono);font-size:11px;color:var(--text-muted);letter-spacing:2px;display:flex;gap:12px;justify-content:center;align-items:center;flex-wrap:wrap;}
+.footer-brand{color:var(--gold-dim);}
+.footer-divider{color:var(--text-muted);}
+::-webkit-scrollbar{width:6px;height:6px;}
+::-webkit-scrollbar-track{background:var(--bg-void);}
+::-webkit-scrollbar-thumb{background:var(--gold-dim);border-radius:3px;}
+
+/* AI CHATBOX */
+#aiChatToggle{position:fixed;bottom:28px;right:28px;z-index:900;width:62px;height:62px;border-radius:50%;background:linear-gradient(135deg,var(--gold-bright),var(--ember));border:none;cursor:pointer;box-shadow:0 4px 24px rgba(255,215,0,0.35),0 0 0 3px rgba(255,215,0,0.1);display:flex;align-items:center;justify-content:center;transition:all 0.3s cubic-bezier(0.34,1.56,0.64,1);font-size:26px;}
+#aiChatToggle:hover{transform:scale(1.12) rotate(8deg);box-shadow:0 6px 32px rgba(255,215,0,0.5);}
+#aiChatToggle .pulse-ring{position:absolute;inset:-6px;border-radius:50%;border:2px solid var(--gold-bright);animation:chatPulse 2s ease-out infinite;opacity:0;}
+@keyframes chatPulse{0%{transform:scale(1);opacity:0.6;}100%{transform:scale(1.5);opacity:0;}}
+#aiChatToggle .notif-dot{position:absolute;top:2px;right:2px;width:14px;height:14px;border-radius:50%;background:var(--green-forge);box-shadow:0 0 8px var(--green-forge);display:none;animation:pulse 1.5s infinite;}
+#aiChatPanel{position:fixed;bottom:100px;right:28px;z-index:901;width:420px;max-height:75vh;background:var(--bg-panel);border:1px solid var(--border-bright);border-radius:16px;box-shadow:0 12px 60px rgba(0,0,0,0.7),0 0 0 1px rgba(255,215,0,0.1);display:none;flex-direction:column;overflow:hidden;transform:translateY(20px) scale(0.95);opacity:0;transition:all 0.35s cubic-bezier(0.34,1.56,0.64,1);}
+#aiChatPanel.open{display:flex;transform:translateY(0) scale(1);opacity:1;}
+.chat-header{padding:14px 18px;background:linear-gradient(135deg,rgba(255,215,0,0.08),rgba(255,69,0,0.06));border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.chat-header-left{display:flex;align-items:center;gap:10px;}
+.chat-header-left .ai-avatar{width:34px;height:34px;border-radius:50%;background:linear-gradient(135deg,var(--gold-bright),var(--ember));display:flex;align-items:center;justify-content:center;font-size:18px;animation:avatarGlow 3s ease-in-out infinite alternate;}
+@keyframes avatarGlow{0%{box-shadow:0 0 8px rgba(255,215,0,0.3);}100%{box-shadow:0 0 20px rgba(255,215,0,0.6);}}
+.chat-header-title{font-family:var(--font-display);font-size:13px;color:var(--gold-bright);letter-spacing:2px;}
+.chat-header-status{font-family:var(--font-mono);font-size:10px;color:var(--green-forge);letter-spacing:1px;}
+.chat-close{background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer;transition:var(--transition);padding:4px 8px;border-radius:6px;}
+.chat-close:hover{color:var(--gold-bright);background:rgba(255,215,0,0.1);}
+.chat-messages{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;min-height:280px;max-height:50vh;scroll-behavior:smooth;}
+.chat-msg{max-width:88%;padding:12px 16px;border-radius:14px;font-size:13px;line-height:1.7;animation:msgSlide 0.3s ease-out;}
+@keyframes msgSlide{from{opacity:0;transform:translateY(10px);}to{opacity:1;transform:translateY(0);}}
+.chat-msg.ai{align-self:flex-start;background:var(--bg-card);border:1px solid var(--border);color:var(--text-primary);border-bottom-left-radius:4px;}
+.chat-msg.user{align-self:flex-end;background:linear-gradient(135deg,rgba(255,215,0,0.15),rgba(255,69,0,0.1));border:1px solid rgba(255,215,0,0.25);color:var(--text-primary);border-bottom-right-radius:4px;}
+.chat-msg.system{align-self:center;background:rgba(0,212,255,0.08);border:1px solid rgba(0,212,255,0.2);color:var(--cyan);font-family:var(--font-mono);font-size:11px;letter-spacing:1px;text-align:center;max-width:95%;border-radius:8px;}
+.chat-msg strong{color:var(--gold-bright);}
+.chat-msg code{background:rgba(255,215,0,0.1);padding:2px 6px;border-radius:4px;font-family:var(--font-mono);font-size:12px;color:var(--ember);}
+.chat-typing{align-self:flex-start;padding:12px 18px;display:flex;gap:5px;align-items:center;}
+.chat-typing .dot{width:7px;height:7px;border-radius:50%;background:var(--gold-bright);animation:typeDot 1.4s infinite;}
+.chat-typing .dot:nth-child(2){animation-delay:0.2s;}
+.chat-typing .dot:nth-child(3){animation-delay:0.4s;}
+@keyframes typeDot{0%,60%,100%{transform:translateY(0);opacity:0.3;}30%{transform:translateY(-8px);opacity:1;}}
+.chat-input-wrap{padding:12px 14px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:center;background:rgba(2,3,10,0.5);}
+.chat-input-wrap input{flex:1;padding:10px 14px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;color:var(--text-primary);font-family:var(--font-body);font-size:13px;outline:none;transition:var(--transition);}
+.chat-input-wrap input:focus{border-color:var(--gold-bright);box-shadow:0 0 0 2px var(--gold-glow);}
+.chat-input-wrap input::placeholder{color:var(--text-muted);}
+.chat-send{width:38px;height:38px;border-radius:10px;background:linear-gradient(135deg,var(--gold-bright),var(--ember));border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;font-size:16px;transition:var(--transition);}
+.chat-send:hover{transform:scale(1.08);box-shadow:0 0 16px rgba(255,215,0,0.4);}
+.chat-send:disabled{opacity:0.4;cursor:not-allowed;transform:none;}
+.chat-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px 14px;border-top:1px solid var(--border);}
+.chat-action-btn{display:flex;align-items:center;gap:8px;padding:10px 12px;background:var(--bg-card);border:1px solid var(--border);border-radius:10px;color:var(--text-primary);font-family:var(--font-mono);font-size:11px;letter-spacing:1px;cursor:pointer;transition:all 0.25s ease;text-align:left;}
+.chat-action-btn:hover:not(:disabled){border-color:var(--gold-bright);background:rgba(255,215,0,0.08);transform:translateY(-1px);box-shadow:0 4px 12px rgba(0,0,0,0.3);}
+.chat-action-btn:disabled{opacity:0.35;cursor:not-allowed;}
+.chat-action-btn .action-icon{font-size:16px;flex-shrink:0;}
+.chat-action-btn.ready{border-color:rgba(57,255,20,0.3);}
+
+@media(max-width:768px){
+  #appHeader{padding:0 16px;flex-wrap:wrap;height:auto;padding:12px 16px;gap:12px;}
+  .header-nav{gap:4px;}
+  .nav-item{padding:6px 12px;font-size:11px;}
+  .section-inner{padding:20px 14px;}
+  .dimensions-grid{grid-template-columns:1fr;}
+  #aiChatPanel{width:calc(100vw - 24px);right:12px;bottom:80px;max-height:70vh;}
+  #aiChatToggle{bottom:16px;right:16px;width:54px;height:54px;}
+}
+  </style>
+</head>
+<body>
+
+<!-- ════════════════════════════════════════════════
+     VISHVAKARMA INTRO ANIMATION
+════════════════════════════════════════════════ -->
+<div id="introOverlay">
+  <canvas id="introCanvas"></canvas>
+  <div id="introContent">
+    <div id="hammerIcon">
+      <svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="hammerGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#FFD700"/>
+            <stop offset="50%" style="stop-color:#FF8C00"/>
+            <stop offset="100%" style="stop-color:#FF4500"/>
+          </linearGradient>
+          <filter id="glow">
+            <feGaussianBlur stdDeviation="3" result="coloredBlur"/>
+            <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge>
+          </filter>
+        </defs>
+        <!-- Gear -->
+        <g id="gearGroup" filter="url(#glow)">
+          <circle cx="60" cy="60" r="22" fill="none" stroke="url(#hammerGrad)" stroke-width="3"/>
+          <circle cx="60" cy="60" r="10" fill="url(#hammerGrad)" opacity="0.6"/>
+          <rect x="56" y="30" width="8" height="12" rx="2" fill="url(#hammerGrad)"/>
+          <rect x="56" y="78" width="8" height="12" rx="2" fill="url(#hammerGrad)"/>
+          <rect x="30" y="56" width="12" height="8" rx="2" fill="url(#hammerGrad)"/>
+          <rect x="78" y="56" width="12" height="8" rx="2" fill="url(#hammerGrad)"/>
+          <rect x="38" y="38" width="8" height="12" rx="2" fill="url(#hammerGrad)" transform="rotate(45 42 44)"/>
+          <rect x="74" y="38" width="8" height="12" rx="2" fill="url(#hammerGrad)" transform="rotate(-45 78 44)"/>
+          <rect x="38" y="70" width="8" height="12" rx="2" fill="url(#hammerGrad)" transform="rotate(-45 42 76)"/>
+          <rect x="74" y="70" width="8" height="12" rx="2" fill="url(#hammerGrad)" transform="rotate(45 78 76)"/>
+        </g>
+        <!-- Hammer -->
+        <g filter="url(#glow)">
+          <rect x="52" y="60" width="35" height="14" rx="3" fill="url(#hammerGrad)" transform="rotate(-35 60 67)"/>
+          <rect x="63" y="65" width="6" height="30" rx="2" fill="#c8a040" transform="rotate(-35 66 80)"/>
+        </g>
+      </svg>
+    </div>
+    <div id="introTitle">
+      <div id="introSanskrit">विश्वकर्मा</div>
+      <div id="introMain">VISHVAKARMA</div>
+      <div id="introSub">FOUNDRY INTELLIGENCE SYSTEM</div>
+      <div id="introTagline">Architect of the Gods · Divine Engineer · Creator of Worlds</div>
+    </div>
+    <div id="introTeam">BY TEAM VISHVAKARMA</div>
+    <div id="introProgress">
+      <div id="introProgressBar"></div>
+    </div>
+    <div id="introSkip" onclick="skipIntro()">ENTER THE FORGE →</div>
+  </div>
+  <!-- Flying sparks -->
+  <div id="sparks"></div>
+</div>
+
+<!-- ════════════════════════════════════════════════
+     MAIN APP
+════════════════════════════════════════════════ -->
+<div id="app" style="display:none;">
+
+  <!-- Ambient BG particles -->
+  <canvas id="bgCanvas"></canvas>
+
+  <!-- Header -->
+  <header id="appHeader">
+    <div class="header-left">
+      <div class="logo-mark">
+        <svg viewBox="0 0 40 40" width="40" height="40">
+          <circle cx="20" cy="20" r="16" fill="none" stroke="#FFD700" stroke-width="1.5"/>
+          <polygon points="20,6 24,16 35,16 26,23 29,34 20,27 11,34 14,23 5,16 16,16" fill="none" stroke="#FFD700" stroke-width="1.2"/>
+          <circle cx="20" cy="20" r="4" fill="#FFD700"/>
+        </svg>
+      </div>
+      <div class="logo-text">
+        <span class="logo-main">VISHVAKARMA</span>
+        <span class="logo-sub">Foundry Intelligence · v2.0</span>
+      </div>
+    </div>
+    <nav class="header-nav">
+      <span class="nav-item active" data-section="calculator">⚙ Calculator</span>
+      <a href="parts_library.html" class="nav-item" style="text-decoration:none;">🔩 Parts Library</a>
+      <span class="nav-item" data-section="about">✦ About</span>
+    </nav>
+    <div class="header-right">
+      <div class="status-dot"></div>
+      <span class="status-text">AI ONLINE</span>
+    </div>
+  </header>
+
+  <!-- ── CALCULATOR SECTION ── -->
+  <section id="section-calculator" class="app-section active">
+    <div class="section-inner">
+
+      <!-- Hero Banner -->
+      <div class="hero-banner">
+        <div class="hero-text">
+          <h1 class="hero-title">PATTERN VOLUME & <span class="accent-gold">GATING</span> CALCULATOR</h1>
+          <p class="hero-desc">AI-powered foundry engineering insights · 3D visualization · Instant analysis</p>
+        </div>
+        <div class="hero-badges">
+          <span class="badge">⚡ Gemini AI</span>
+          <span class="badge">🎯 Three.js 3D</span>
+          <span class="badge">📐 Engineering Grade</span>
+        </div>
+      </div>
+
+      <!-- Main Grid -->
+      <div class="calc-grid">
+
+        <!-- LEFT: Input Panel -->
+        <div class="panel panel-inputs">
+          <div class="panel-header">
+            <span class="panel-icon">⚙</span>
+            <h2>Pattern Configuration</h2>
+          </div>
+
+          <div class="input-group">
+            <label class="input-label">Pattern Type</label>
+            <div class="select-wrapper">
+              <select id="patternType">
+                <option value="Single Piece">Single Piece Pattern</option>
+                <option value="Two Piece">Two Piece (Split) Pattern</option>
+                <option value="Cope and Drag">Cope and Drag Pattern</option>
+                <option value="Match Plate">Match Plate Pattern</option>
+                <option value="Gated">Gated Pattern</option>
+                <option value="Skeleton">Skeleton Pattern</option>
+                <option value="Sweep">Sweep Pattern</option>
+                <option value="Loose Piece">Loose Piece Pattern</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label class="input-label">Geometry Shape</label>
+            <div class="shape-selector">
+              <div class="shape-btn active" data-shape="cube" onclick="selectShape('cube',this)">
+                <svg viewBox="0 0 40 40"><rect x="8" y="8" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"/><polygon points="28,8 35,15 35,35 28,28" fill="none" stroke="currentColor" stroke-width="1.5"/><polygon points="8,28 15,35 35,35 28,28" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>
+                <span>Cube</span>
+              </div>
+              <div class="shape-btn" data-shape="cylinder" onclick="selectShape('cylinder',this)">
+                <svg viewBox="0 0 40 40"><ellipse cx="20" cy="12" rx="12" ry="5" fill="none" stroke="currentColor" stroke-width="2"/><ellipse cx="20" cy="28" rx="12" ry="5" fill="none" stroke="currentColor" stroke-width="2"/><line x1="8" y1="12" x2="8" y2="28" stroke="currentColor" stroke-width="2"/><line x1="32" y1="12" x2="32" y2="28" stroke="currentColor" stroke-width="2"/></svg>
+                <span>Cylinder</span>
+              </div>
+              <div class="shape-btn" data-shape="sphere" onclick="selectShape('sphere',this)">
+                <svg viewBox="0 0 40 40"><circle cx="20" cy="20" r="14" fill="none" stroke="currentColor" stroke-width="2"/><ellipse cx="20" cy="20" rx="14" ry="6" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.5"/></svg>
+                <span>Sphere</span>
+              </div>
+              <div class="shape-btn" data-shape="cone" onclick="selectShape('cone',this)">
+                <svg viewBox="0 0 40 40"><ellipse cx="20" cy="30" rx="13" ry="5" fill="none" stroke="currentColor" stroke-width="2"/><line x1="7" y1="30" x2="20" y2="10" stroke="currentColor" stroke-width="2"/><line x1="33" y1="30" x2="20" y2="10" stroke="currentColor" stroke-width="2"/></svg>
+                <span>Cone</span>
+              </div>
+              <div class="shape-btn" data-shape="torus" onclick="selectShape('torus',this)">
+                <svg viewBox="0 0 40 40"><ellipse cx="20" cy="20" rx="14" ry="8" fill="none" stroke="currentColor" stroke-width="2"/><ellipse cx="20" cy="20" rx="6" ry="3" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                <span>Torus/Ring</span>
+              </div>
+              <div class="shape-btn" data-shape="hexprism" onclick="selectShape('hexprism',this)">
+                <svg viewBox="0 0 40 40"><polygon points="20,8 30,14 30,26 20,32 10,26 10,14" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+                <span>Hex Prism</span>
+              </div>
+            </div>
+          </div>
+
+          <div id="dimensionInputs" class="dimensions-grid">
+            <!-- Dynamically populated -->
+          </div>
+
+          <div class="input-group">
+            <label class="input-label">Material / Alloy</label>
+            <div class="select-wrapper">
+              <select id="materialType">
+                <option value="Grey Cast Iron">Grey Cast Iron (7.15 g/cm³)</option>
+                <option value="Ductile Iron">Ductile Iron (7.10 g/cm³)</option>
+                <option value="White Cast Iron">White Cast Iron (7.60 g/cm³)</option>
+                <option value="Malleable Iron">Malleable Iron (7.30 g/cm³)</option>
+                <option value="Carbon Steel">Carbon Steel (7.85 g/cm³)</option>
+                <option value="Stainless Steel 304">Stainless Steel 304 (8.00 g/cm³)</option>
+                <option value="Aluminum Alloy A356">Aluminum A356 (2.68 g/cm³)</option>
+                <option value="Aluminum 6061">Aluminum 6061 (2.70 g/cm³)</option>
+                <option value="Brass C360">Brass C360 (8.50 g/cm³)</option>
+                <option value="Bronze C932">Bronze C932 (8.93 g/cm³)</option>
+                <option value="Copper">Copper (8.96 g/cm³)</option>
+                <option value="Magnesium AZ91">Magnesium AZ91 (1.81 g/cm³)</option>
+                <option value="Zinc ZA-27">Zinc ZA-27 (5.00 g/cm³)</option>
+                <option value="Nickel Alloy 625">Nickel 625 (8.44 g/cm³)</option>
+                <option value="Titanium Ti-6Al-4V">Titanium Ti-6Al-4V (4.43 g/cm³)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="input-group">
+            <label class="input-label">Mold Type</label>
+            <div class="select-wrapper">
+              <select id="moldType">
+                <option value="Green Sand">Green Sand Mold</option>
+                <option value="Dry Sand">Dry Sand Mold</option>
+                <option value="Shell Mold">Shell Mold</option>
+                <option value="Investment">Investment Casting</option>
+                <option value="Die Cast">Die Casting</option>
+                <option value="Centrifugal">Centrifugal Casting</option>
+                <option value="Ceramic">Ceramic Mold</option>
+                <option value="Lost Foam">Lost Foam</option>
+              </select>
+            </div>
+          </div>
+
+          <button id="calculateBtn" onclick="calculateAll()" class="btn-primary">
+            <span class="btn-icon">⚡</span>
+            <span>CALCULATE & AI ANALYZE</span>
+            <span class="btn-glow"></span>
+          </button>
+        </div>
+
+        <!-- CENTER: 3D Preview -->
+        <div class="panel panel-3d">
+          <div class="panel-header">
+            <span class="panel-icon">🎯</span>
+            <h2>3D Live Preview</h2>
+            <span class="badge-sm" id="shapeLabel">Cube</span>
+          </div>
+          <div id="shapePreview">
+            <canvas id="threeCanvas"></canvas>
+            <div id="previewOverlay">
+              <div class="crosshair-h"></div>
+              <div class="crosshair-v"></div>
+              <div class="corner tl"></div>
+              <div class="corner tr"></div>
+              <div class="corner bl"></div>
+              <div class="corner br"></div>
+            </div>
+            <div id="shapeStats">
+              <div class="stat-item"><span id="stat-vol">—</span><small>Volume cm³</small></div>
+              <div class="stat-divider"></div>
+              <div class="stat-item"><span id="stat-mass">—</span><small>Mass kg</small></div>
+              <div class="stat-divider"></div>
+              <div class="stat-item"><span id="stat-sa">—</span><small>Surface cm²</small></div>
+            </div>
+          </div>
+          <!-- Results Panel -->
+          <div id="calcResults" class="calc-results hidden">
+            <div class="results-grid">
+              <div class="result-card">
+                <div class="result-val" id="res-volume">—</div>
+                <div class="result-key">Total Volume (cm³)</div>
+              </div>
+              <div class="result-card">
+                <div class="result-val" id="res-mass">—</div>
+                <div class="result-key">Estimated Mass (kg)</div>
+              </div>
+              <div class="result-card">
+                <div class="result-val" id="res-sprue">—</div>
+                <div class="result-key">Sprue Area (cm²)</div>
+              </div>
+              <div class="result-card">
+                <div class="result-val" id="res-runner">—</div>
+                <div class="result-key">Runner Area (cm²)</div>
+              </div>
+              <div class="result-card">
+                <div class="result-val" id="res-gate">—</div>
+                <div class="result-key">Gate Area (cm²)</div>
+              </div>
+              <div class="result-card">
+                <div class="result-val" id="res-riser">—</div>
+                <div class="result-key">Riser Volume (cm³)</div>
+              </div>
+              <div class="result-card">
+                <div class="result-val" id="res-pour">—</div>
+                <div class="result-key">Pouring Time (s)</div>
+              </div>
+              <div class="result-card">
+                <div class="result-val" id="res-yield">—</div>
+                <div class="result-key">Casting Yield (%)</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- RIGHT: AI Panel -->
+        <div class="panel panel-ai">
+          <div class="panel-header">
+            <span class="panel-icon">🤖</span>
+            <h2>AI Engineering Insights</h2>
+            <span class="badge-sm badge-live" id="aiStatus">READY</span>
+          </div>
+          <div id="aiContainer" class="ai-container">
+            <div id="aiPlaceholder" class="ai-placeholder">
+              <div class="placeholder-icon">
+                <svg viewBox="0 0 80 80" width="60" height="60">
+                  <circle cx="40" cy="40" r="30" fill="none" stroke="#FFD70040" stroke-width="2"/>
+                  <circle cx="40" cy="40" r="20" fill="none" stroke="#FFD70060" stroke-width="1.5"/>
+                  <circle cx="40" cy="40" r="10" fill="#FFD70020"/>
+                  <line x1="40" y1="10" x2="40" y2="30" stroke="#FFD700" stroke-width="2" stroke-linecap="round"/>
+                  <line x1="40" y1="50" x2="40" y2="70" stroke="#FFD700" stroke-width="2" stroke-linecap="round"/>
+                  <line x1="10" y1="40" x2="30" y2="40" stroke="#FFD700" stroke-width="2" stroke-linecap="round"/>
+                  <line x1="50" y1="40" x2="70" y2="40" stroke="#FFD700" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+              </div>
+              <p>Configure your pattern and press <strong>Calculate & AI Analyze</strong> to receive expert engineering guidance.</p>
+            </div>
+            <div id="aiContent" class="ai-content hidden">
+              <div id="aiText"></div>
+            </div>
+            <div id="aiLoading" class="ai-loading hidden">
+              <div class="loading-orbs">
+                <div class="orb orb1"></div>
+                <div class="orb orb2"></div>
+                <div class="orb orb3"></div>
+              </div>
+              <p class="loading-text">Consulting the Divine Engineer...</p>
+              <div class="loading-bar"><div class="loading-fill" id="loadFill"></div></div>
+            </div>
+          </div>
+          <div class="ai-actions hidden" id="aiActions">
+            <button class="btn-secondary" onclick="downloadPDF()">⬇ Export PDF Report</button>
+            <button class="btn-secondary" onclick="resetCalculator()">↺ Reset</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- ── PARTS LIBRARY SECTION ── -->
+  <section id="section-parts" class="app-section">
+    <div class="section-inner">
+      <div class="hero-banner">
+        <div class="hero-text">
+          <h1 class="hero-title">MECHANICAL <span class="accent-gold">PARTS</span> LIBRARY</h1>
+          <p class="hero-desc">500+ foundry-manufactured components across all pattern categories</p>
+        </div>
+      </div>
+
+      <div class="parts-controls">
+        <input type="text" id="partsSearch" placeholder="🔍 Search parts (e.g. gear, valve, bearing...)" oninput="filterParts()" />
+        <div class="category-filters" id="categoryFilters"></div>
+      </div>
+
+      <div id="partsGrid" class="parts-grid"></div>
+    </div>
+  </section>
+
+  <!-- ── ABOUT SECTION ── -->
+  <section id="section-about" class="app-section">
+    <div class="section-inner about-section">
+      <div class="vishvakarma-emblem">
+        <svg viewBox="0 0 200 200" width="150" height="150">
+          <defs>
+            <radialGradient id="embGrad" cx="50%" cy="50%">
+              <stop offset="0%" stop-color="#FFD700" stop-opacity="0.8"/>
+              <stop offset="100%" stop-color="#FF4500" stop-opacity="0.2"/>
+            </radialGradient>
+          </defs>
+          <circle cx="100" cy="100" r="90" fill="none" stroke="#FFD700" stroke-width="1" opacity="0.4"/>
+          <circle cx="100" cy="100" r="70" fill="none" stroke="#FFD700" stroke-width="0.5" opacity="0.3"/>
+          <circle cx="100" cy="100" r="50" fill="url(#embGrad)" opacity="0.5"/>
+          <!-- 16-point star -->
+          <g stroke="#FFD700" stroke-width="1.5" fill="none">
+            <line x1="100" y1="20" x2="100" y2="55"/>
+            <line x1="100" y1="145" x2="100" y2="180"/>
+            <line x1="20" y1="100" x2="55" y2="100"/>
+            <line x1="145" y1="100" x2="180" y2="100"/>
+            <line x1="43" y1="43" x2="68" y2="68"/>
+            <line x1="132" y1="132" x2="157" y2="157"/>
+            <line x1="157" y1="43" x2="132" y2="68"/>
+            <line x1="43" y1="157" x2="68" y2="132"/>
+            <line x1="72" y1="30" x2="80" y2="62"/>
+            <line x1="120" y1="138" x2="128" y2="170"/>
+            <line x1="30" y1="72" x2="62" y2="80"/>
+            <line x1="138" y1="120" x2="170" y2="128"/>
+            <line x1="128" y1="30" x2="120" y2="62"/>
+            <line x1="80" y1="138" x2="72" y2="170"/>
+            <line x1="170" y1="72" x2="138" y2="80"/>
+            <line x1="62" y1="120" x2="30" y2="128"/>
+          </g>
+          <polygon points="100,62 108,85 133,85 113,100 121,123 100,108 79,123 87,100 67,85 92,85" fill="#FFD700" opacity="0.9"/>
+          <circle cx="100" cy="100" r="12" fill="none" stroke="#FFD700" stroke-width="2"/>
+          <circle cx="100" cy="100" r="5" fill="#FFD700"/>
+        </svg>
+      </div>
+      <h1 class="about-title">विश्वकर्मा — VISHVAKARMA</h1>
+      <p class="about-verse">"In the cosmic forge of the divine architect, every atom was shaped with purpose, every molecule cast with intention. Vishvakarma — the builder of heaven, the craftsman of gods — lives in every engineer who creates."</p>
+      
+      <div class="about-cards">
+        <div class="about-card">
+          <div class="about-card-icon">⚙</div>
+          <h3>Divine Engineering</h3>
+          <p>Lord Vishvakarma, the celestial architect, created the city of Lanka, the flying chariot Pushpaka Vimana, and the weapons of the gods. This tool honors that tradition of precision engineering.</p>
+        </div>
+        <div class="about-card">
+          <div class="about-card-icon">🔥</div>
+          <h3>The Sacred Forge</h3>
+          <p>Foundry work is humanity's oldest form of creation — transforming raw ore through fire and mold into functional art. Every casting is an act of divine creation.</p>
+        </div>
+        <div class="about-card">
+          <div class="about-card-icon">🤖</div>
+          <h3>AI + Ancient Wisdom</h3>
+          <p>We combine Gemini AI's analytical power with centuries of foundry engineering knowledge to deliver real-time insights on gating, risering, and solidification.</p>
+        </div>
+      </div>
+
+      <div class="team-banner">
+        <div class="team-title">TEAM VISHVAKARMA</div>
+        <div class="team-subtitle">Hackathon 2025 · Foundry Intelligence Track</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="footer-inner">
+      <span class="footer-brand">⚙ VISHVAKARMA FOUNDRY AI</span>
+      <span class="footer-divider">·</span>
+      <span>Team Vishvakarma © 2025</span>
+      <span class="footer-divider">·</span>
+      <span>Built with Three.js + Gemini AI</span>
+    </div>
+  </footer>
+
+</div><!-- /app -->
+
+<script src="script.js"></script>
+
+<!-- AI CHAT TOGGLE -->
+<button id="aiChatToggle" onclick="toggleAIChat()" title="AI Foundry Assistant (Ctrl+K)">
+  <span class="pulse-ring"></span>
+  <span class="notif-dot" id="chatNotif"></span>
+  🤖
+</button>
+
+<!-- AI CHAT PANEL -->
+<div id="aiChatPanel">
+  <div class="chat-header">
+    <div class="chat-header-left">
+      <div class="ai-avatar">🔥</div>
+      <div>
+        <div class="chat-header-title">FOUNDRY AI</div>
+        <div class="chat-header-status" id="aiStatusText">● <span style="color:var(--green-forge);">Online</span> · Built-in Knowledge Engine</div>
+      </div>
+    </div>
+    <button class="chat-close" onclick="toggleAIChat()">✕</button>
+  </div>
+  <div class="chat-messages" id="chatMessages">
+    <div class="chat-msg system">⚡ Vishvakarma AI · Built-in Foundry Knowledge · Ref: Heine, P.L. Jain, P.N. Rao</div>
+    <div class="chat-msg ai">Namaste! 🙏 I'm <strong>Vishvakarma AI</strong> — your foundry engineering assistant.<br><br>
+      🔍 <strong>Defect Analysis</strong> — 15 defects with causes &amp; prevention<br>
+      ⚠️ <strong>Precautions</strong> — 15-point checklist<br>
+      📄 <strong>Full Report</strong> — Complete casting process report<br>
+      📐 <strong>Gating Diagram</strong> — SVG layout instantly<br><br>
+      <em>Calculate a part first, then use the buttons below!</em></div>
+  </div>
+  <div class="chat-actions" id="chatQuickBtns">
+    <button class="chat-action-btn" onclick="quickAsk('defects')" id="btnDefects" disabled><span class="action-icon">🔍</span><span>Defect Analysis</span></button>
+    <button class="chat-action-btn" onclick="quickAsk('precautions')" id="btnPrecautions" disabled><span class="action-icon">⚠️</span><span>Precautions</span></button>
+    <button class="chat-action-btn" onclick="quickAsk('report')" id="btnFullReport" disabled><span class="action-icon">📄</span><span>Full Report</span></button>
+    <button class="chat-action-btn" onclick="triggerGatingDiagramChat()" id="btnDiagram" disabled><span class="action-icon">📐</span><span>Gating Diagram</span></button>
+  </div>
+  <div class="chat-actions" style="grid-template-columns:1fr;padding-top:0;">
+    <button class="chat-action-btn" onclick="openGeminiDirect()" id="btnGemini" disabled style="border-color:rgba(0,212,255,0.3);color:var(--cyan);">
+      <span class="action-icon">✨</span><span>Open Gemini for AI Images &amp; Deep Analysis</span>
+    </button>
+  </div>
+  <div class="chat-input-wrap">
+    <input type="text" id="chatInput" placeholder="Ask anything about casting, defects..." onkeydown="if(event.key==='Enter')sendChatMsg()" />
+    <button class="chat-send" onclick="sendChatMsg()" id="chatSendBtn">→</button>
+  </div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+// VISHVAKARMA AI CHATBOT
+// ══════════════════════════════════════════════
+let chatOpen=false,lastCalcData=null,chatBusy=false;
+
+const MATERIAL_KB={"Grey Cast Iron":{pourTemp:"1350–1420°C",shrinkage:"0.8–1.0%",draft:"1–2°",gatingRatio:"1:2:4 (pressurized)",risks:["Graphite flake weakness","Section sensitivity","Hard edges from chill"],inoculant:"FeSi 75% (0.2–0.5%)",heatTreat:"Stress relief at 550–600°C",density:7.15},"Ductile Iron":{pourTemp:"1370–1450°C",shrinkage:"0.5–0.7%",draft:"1–3°",gatingRatio:"1:1.5:2",risks:["Shrinkage porosity","Dross inclusions","Carbide formation"],inoculant:"FeSiMg treatment",heatTreat:"Anneal 900°C/1hr",density:7.10},"White Cast Iron":{pourTemp:"1350–1400°C",shrinkage:"1.0–2.0%",draft:"2–3°",gatingRatio:"1:1:1",risks:["Extreme brittleness","Cracking from thermal shock"],inoculant:"None",heatTreat:"Anneal at 950°C",density:7.60},"Malleable Iron":{pourTemp:"1370–1430°C",shrinkage:"1.5–2.0%",draft:"1–2°",gatingRatio:"1:2:3",risks:["Incomplete malleabilization","Shrinkage cavities"],inoculant:"None",heatTreat:"2-stage anneal",density:7.30},"Carbon Steel":{pourTemp:"1520–1600°C",shrinkage:"1.5–2.0%",draft:"1.5–3°",gatingRatio:"1:2:1.5 (pressurized)",risks:["Hot tearing","Shrinkage porosity","Gas porosity"],inoculant:"Al deoxidation (0.05–0.1%)",heatTreat:"Normalize 870–920°C",density:7.85},"Stainless Steel 304":{pourTemp:"1500–1580°C",shrinkage:"2.0–2.5%",draft:"2–3°",gatingRatio:"1:1.5:1",risks:["Hot cracking","Carbide precipitation"],inoculant:"Ar degassing",heatTreat:"Solution anneal 1050°C",density:8.00},"Aluminum Alloy A356":{pourTemp:"680–740°C",shrinkage:"1.3–1.5%",draft:"1–2°",gatingRatio:"1:2:4 (unpressurized)",risks:["Hydrogen porosity","Oxide inclusions","Hot tearing"],inoculant:"Ti-B grain refiner + Sr modifier",heatTreat:"T6: 540°C/12h + WQ + 155°C/6h",density:2.68},"Aluminum 6061":{pourTemp:"660–720°C",shrinkage:"1.2–1.5%",draft:"1–2°",gatingRatio:"1:2:4",risks:["Gas porosity","Oxide films"],inoculant:"Ti-B grain refiner",heatTreat:"T6 temper",density:2.70},"Brass C360":{pourTemp:"930–1000°C",shrinkage:"1.4–1.7%",draft:"1–2°",gatingRatio:"1:1.5:3",risks:["Zinc fumes","Dezincification"],inoculant:"None",heatTreat:"Stress relief 250°C",density:8.50},"Bronze C932":{pourTemp:"1000–1100°C",shrinkage:"1.5–2.0%",draft:"1.5–2°",gatingRatio:"1:2:3",risks:["Tin sweat","Gas porosity"],inoculant:"P deoxidizer",heatTreat:"Anneal 600°C/2h",density:8.93},"Copper":{pourTemp:"1100–1200°C",shrinkage:"1.6–2.1%",draft:"1.5–2°",gatingRatio:"1:1.5:2",risks:["Hydrogen embrittlement","Severe shrinkage"],inoculant:"P deox",heatTreat:"Anneal 400–650°C",density:8.96},"Magnesium AZ91":{pourTemp:"620–680°C",shrinkage:"1.5–2.0%",draft:"1–2°",gatingRatio:"1:2:4",risks:["Oxidation","Flammability"],inoculant:"SF6/CO2 cover gas",heatTreat:"T4/T6 temper",density:1.81},"Zinc ZA-27":{pourTemp:"440–480°C",shrinkage:"1.0–1.5%",draft:"0.5–1°",gatingRatio:"1:3:6",risks:["Hot shortness","Porosity"],inoculant:"None",heatTreat:"Age at room temp",density:5.00},"Nickel 625":{pourTemp:"1350–1450°C",shrinkage:"2.0–2.5%",draft:"2–3°",gatingRatio:"1:2:2",risks:["Hot cracking","Oxidation"],inoculant:"Vacuum melting preferred",heatTreat:"Anneal 870°C",density:8.44},"Titanium Ti-6Al-4V":{pourTemp:"1660–1700°C (vacuum)",shrinkage:"2.5–3.5%",draft:"3–5°",gatingRatio:"1:1:1",risks:["Extreme reactivity with O2/N2","Alpha case formation"],inoculant:"Vacuum/inert atmosphere required",heatTreat:"Anneal 700–790°C/2h",density:4.43}};
+
+const PATTERN_KB={"Single Piece":{notes:"Suitable for flat-back castings.",defectRisk:"Low"},"Two Piece":{notes:"Most common. Cope and drag halves.",defectRisk:"Mismatch/shift at parting line possible"},"Cope and Drag":{notes:"For large castings.",defectRisk:"Mismatch, fins at parting line"},"Match Plate":{notes:"For high production.",defectRisk:"Pattern wear over production"},"Gated":{notes:"Multiple patterns with integral gating.",defectRisk:"Uneven filling between cavities"},"Sweep":{notes:"For circular/axisymmetric parts.",defectRisk:"Surface finish depends on sweep quality"}};
+
+const DEFECT_DB={shrinkage:{name:"Shrinkage Porosity",cause:"Inadequate feeding during solidification",location:"Thick sections, junctions",prevention:"Increase riser size, use chills",ref:"P.L. Jain Ch.8; Heine Ch.12"},porosity:{name:"Gas Porosity (Blowholes)",cause:"Dissolved gases, moisture in mold",location:"Sub-surface, near core prints",prevention:"Proper degassing, dry sand, venting",ref:"P.N. Rao Ch.4"},misrun:{name:"Misrun",cause:"Metal solidifies before filling cavity",location:"Thin walls, far end from gate",prevention:"Increase pouring temp, gate area",ref:"Heine Ch.10"},hotTear:{name:"Hot Tearing",cause:"Tensile stress during solidification",location:"Re-entrant angles, T-junctions",prevention:"Add fillets (R ≥ 3mm), uniform section",ref:"P.L. Jain Ch.9"},sandInclusion:{name:"Sand Inclusion",cause:"Mold erosion, loose sand",location:"Top surface (cope side)",prevention:"Proper ramming, ceramic filters",ref:"AFS Handbook"},coldShut:{name:"Cold Shut",cause:"Two metal streams don't fuse",location:"Where two streams converge",prevention:"Increase pour temp, modify gate",ref:"Heine Ch.10"},metalPenetration:{name:"Metal Penetration",cause:"High pour temp, coarse sand",location:"Surface near gate",prevention:"Finer sand, mold coating",ref:"P.N. Rao Ch.5"},scab:{name:"Scab",cause:"Sand expansion at high temp",location:"Flat surfaces on cope",prevention:"Add wood flour/cereal binder",ref:"AFS Handbook"},swell:{name:"Swell",cause:"Metallostatic pressure exceeds mold strength",location:"Lower sections of tall castings",prevention:"Proper ramming, clamps",ref:"P.L. Jain Ch.7"},shift:{name:"Mold Shift",cause:"Misalignment of cope-drag",location:"At parting line",prevention:"Use guide pins, check alignment",ref:"P.N. Rao Ch.3"},blowhole:{name:"Blowhole",cause:"Gas entrapment from moisture",location:"Sub-surface in cope",prevention:"Vent mold properly, reduce moisture",ref:"Heine Ch.11"},oxideDross:{name:"Oxide/Dross Inclusion",cause:"Turbulent pouring",location:"Top surfaces, near gates",prevention:"Skim ladle, use pouring basin",ref:"P.L. Jain Ch.8"},finFlash:{name:"Fin/Flash",cause:"Gap at parting line",location:"Parting line",prevention:"Proper mold clamping",ref:"P.N. Rao Ch.4"},roughSurface:{name:"Rough Surface",cause:"Coarse sand, poor coating",location:"Entire surface",prevention:"Finer sand (AFS 60+), zircon wash",ref:"AFS Handbook"},rattail:{name:"Rat Tail/Buckle",cause:"Sand expansion on flat surfaces",location:"Large flat areas on cope",prevention:"Add combustible additives",ref:"AFS Handbook"}};
+
+const CONV_RESPONSES={"hello":"Namaste! 🙏 I'm **Vishvakarma AI**.\n\nI can help with:\n• **Defect analysis** — predict casting defects\n• **Precautions** — 15-point checklist per Heine & P.L. Jain\n• **Gating design** — sprue/runner/gate/riser optimization\n• **Material advice** — pouring temps, shrinkage, heat treatment\n\nCalculate a part first, then use the quick buttons!","hi":"Hello! 👋 Ready to analyze your castings. Calculate first, then I'll give engineering-grade analysis based on **Heine, Loper & Rosenthal** and **P.L. Jain**.","help":"**After calculating:**\n• 🔍 Defect Analysis\n• ⚠️ Precautions\n• 📄 Full Report\n• 📐 Gating Diagram\n\n**I can also answer:**\n• Pouring temperatures\n• Shrinkage allowances\n• Gating ratios\n• Pattern types","pouring temperature":"**Standard Pouring Temperatures (Ref: P.L. Jain):**\n\n• Grey Cast Iron: **1350–1420°C**\n• Carbon Steel: **1520–1600°C**\n• Aluminum A356: **680–740°C**\n• Brass C360: **930–1000°C**\n• Bronze C932: **1000–1100°C**\n\n💡 Pour 50–100°C above liquidus.","shrinkage":"**Shrinkage Allowances (Ref: Heine):**\n\n• Grey CI: **0.8–1.0%**\n• Ductile Iron: **0.5–0.7%**\n• Carbon Steel: **1.5–2.0%**\n• Aluminum: **1.3–1.5%**\n• Brass: **1.4–1.7%**","gating ratio":"**Standard Gating Ratios (Ref: P.N. Rao):**\n\n• **Pressurized** (Ferrous): 1:2:1.5\n• **Unpressurized** (Non-ferrous): 1:2:4\n• **Grey CI**: 1:2:4\n• **Steel**: 1:2:1.5\n• **Aluminum**: 1:2:4","defects":"**Top Casting Defects:**\n\n1. **Shrinkage** — inadequate feeding\n2. **Gas Porosity** — moisture/gases\n3. **Misrun** — low pour temp\n4. **Hot Tear** — restrained contraction\n5. **Cold Shut** — streams don't fuse\n6. **Sand Inclusion** — mold erosion\n7. **Metal Penetration** — coarse sand\n\nCalculate a part and click 🔍 for full analysis!","riser":"**Riser Design (Ref: Heine Ch.12):**\n\n• Riser modulus > 1.2 × Casting modulus\n• Volume: Riser = 15–25% of casting\n• Shape: Cylindrical (H:D = 1:1)\n• Place at thickest section\n\n💡 **Chvorinov:** t = C × (V/SA)²","chvorinov":"**Chvorinov's Rule: t = C × (V/SA)²**\n\n• t = solidification time\n• V = volume, SA = surface area\n• C = mold constant\n\nRiser must have higher modulus than casting to freeze last. *(Ref: Heine, Ch.12)*"};
+
+function toggleAIChat(){chatOpen=!chatOpen;const p=document.getElementById('aiChatPanel');if(!p)return;if(chatOpen){p.style.display='flex';requestAnimationFrame(()=>p.classList.add('open'));const n=document.getElementById('chatNotif');if(n)n.style.display='none';const i=document.getElementById('chatInput');if(i)setTimeout(()=>i.focus(),350);}else{p.classList.remove('open');setTimeout(()=>{p.style.display='none';},350);}}
+function addChatMsg(html,type){const c=document.getElementById('chatMessages');if(!c)return null;const d=document.createElement('div');d.className='chat-msg '+type;d.innerHTML=html;c.appendChild(d);c.scrollTop=c.scrollHeight;return d;}
+function showTyping(){const c=document.getElementById('chatMessages');if(!c)return;const d=document.createElement('div');d.className='chat-typing';d.id='typingDots';d.innerHTML='<div class="dot"></div><div class="dot"></div><div class="dot"></div>';c.appendChild(d);c.scrollTop=c.scrollHeight;}
+function hideTyping(){const e=document.getElementById('typingDots');if(e)e.remove();}
+function setStatus(t,c){const m={ember:'var(--ember-mid)',green:'var(--green-forge)',cyan:'var(--cyan)'};const el=document.getElementById('aiStatusText');if(el)el.innerHTML='● <span style="color:'+(m[c]||'var(--green-forge)')+';">'+t+'</span>';}
+function formatAI(t){if(!t)return '';return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\*(.+?)\*/g,'<em>$1</em>').replace(/#{1,3}\s*(.+)/g,'<strong style="color:var(--gold-bright);">$1</strong>').replace(/\n/g,'<br>');}
+function aiDelay(a,b){return new Promise(r=>setTimeout(r,a+Math.random()*(b-a)));}
+function getMatKey(name){return Object.keys(MATERIAL_KB).find(k=>name&&name.includes(k.split(' ')[0]))||"Grey Cast Iron";}
+
+function getSmartResponse(userText){
+  const q=userText.toLowerCase().trim();
+  for(const[k,v]of Object.entries(CONV_RESPONSES)){if(q.includes(k))return v;}
+  for(const[mat,data]of Object.entries(MATERIAL_KB)){if(q.includes(mat.toLowerCase().split(' ')[0])){return '**'+mat+' Data:**\n\n• Pour Temp: **'+data.pourTemp+'**\n• Shrinkage: **'+data.shrinkage+'**\n• Draft: **'+data.draft+'**\n• Gating Ratio: **'+data.gatingRatio+'**\n• Inoculant: '+data.inoculant+'\n• Heat Treatment: '+data.heatTreat+'\n• Key Risks: '+data.risks.join(', ')+'\n\n*(Ref: Heine, P.L. Jain)*';}}
+  if(lastCalcData&&(q.includes('my part')||q.includes('this part')||q.includes('current'))){const mat=MATERIAL_KB[getMatKey(lastCalcData.materialName)];return '**Current Part Analysis:**\n\n• Shape: '+lastCalcData.shape+'\n• Volume: **'+lastCalcData.volume+' cm³** | Mass: **'+lastCalcData.mass+' kg**\n• Pattern: '+lastCalcData.pattern+'\n• Pour at: **'+mat.pourTemp+'**\n• Key risks: '+mat.risks.join(', ')+'\n\nUse quick buttons for full analysis!';}
+  return 'I can help with:\n• Material properties & pouring temperatures\n• Defect analysis (calculate first)\n• Precautions checklist\n• Gating & riser design\n\nAsk about a specific material (e.g. "grey cast iron") or use the quick buttons after calculating!';
+}
+
+function generateDefectAnalysis(){
+  if(!lastCalcData)return 'Calculate first!';
+  const matKey=getMatKey(lastCalcData.materialName),mat=MATERIAL_KB[matKey];
+  const vol=parseFloat(lastCalcData.volume)||100,shape=(lastCalcData.shape||'').toLowerCase();
+  const isComplex=shape.includes('cone')||shape.includes('torus');
+  let a='## 🔍 DEFECT ANALYSIS\n*'+matKey+' | Vol: '+lastCalcData.volume+' cm³ | '+lastCalcData.pattern+'*\n\n';
+  const dl=[{...DEFECT_DB.shrinkage,l:vol>500?"HIGH":"MEDIUM"},{...DEFECT_DB.porosity,l:mat.risks.some(r=>r.toLowerCase().includes('poros'))?"HIGH":"MEDIUM"},{...DEFECT_DB.misrun,l:isComplex?"HIGH":"LOW"},{...DEFECT_DB.hotTear,l:isComplex?"HIGH":"LOW"},{...DEFECT_DB.sandInclusion,l:"MEDIUM"},{...DEFECT_DB.coldShut,l:isComplex?"HIGH":"LOW"},{...DEFECT_DB.metalPenetration,l:vol>500?"MEDIUM":"LOW"},{...DEFECT_DB.scab,l:"MEDIUM"},{...DEFECT_DB.swell,l:vol>1000?"HIGH":"LOW"},{...DEFECT_DB.shift,l:lastCalcData.pattern.includes('Two')?"MEDIUM":"LOW"},{...DEFECT_DB.blowhole,l:"MEDIUM"},{...DEFECT_DB.oxideDross,l:matKey.includes('Alum')?"HIGH":"MEDIUM"},{...DEFECT_DB.finFlash,l:"LOW"},{...DEFECT_DB.roughSurface,l:"LOW"},{...DEFECT_DB.rattail,l:"MEDIUM"}];
+  dl.forEach((d,i)=>{const ic=d.l==="HIGH"?"🔴":d.l==="MEDIUM"?"🟡":"🟢";a+='**'+(i+1)+'. '+d.name+'** '+ic+' '+d.l+'\n   Cause: '+d.cause+'\n   Location: '+d.location+'\n   Prevention: '+d.prevention+'\n   *('+d.ref+')*\n\n';});
+  a+='\n**Material Risks for '+matKey+':**\n';mat.risks.forEach(r=>{a+='• '+r+'\n';});return a;
+}
+
+function generatePrecautions(){
+  if(!lastCalcData)return 'Calculate first!';
+  const matKey=getMatKey(lastCalcData.materialName),mat=MATERIAL_KB[matKey];
+  return '## ⚠️ CASTING PRECAUTIONS\n*15-Point Checklist (Ref: P.L. Jain, Heine)*\n\n'+
+    '**1. Mold Sand** — Silica sand AFS 55-70, bentonite 8-12%, moisture 3-5%.\n\n'+
+    '**2. Sand Ramming** — Ram to hardness 70-80. Too soft → swell. Too hard → gas defects.\n\n'+
+    '**3. Pattern Prep** — Shrinkage: **'+mat.shrinkage+'**, Draft: **'+mat.draft+'**.\n\n'+
+    '**4. Core Setting** — Adequate core prints. Core venting is critical.\n\n'+
+    '**5. Gating System** — Ratio **'+mat.gatingRatio+'**. Sprue: '+lastCalcData.sprue+' cm². Runner: '+lastCalcData.runner+' cm².\n\n'+
+    '**6. Riser Design** — Riser volume: **'+lastCalcData.riser+' cm³** (~15% of casting vol).\n\n'+
+    '**7. Pouring Temperature** — Pour at **'+mat.pourTemp+'**. Verify with pyrometer.\n\n'+
+    '**8. Pouring Speed** — Pour time: **'+lastCalcData.pourTime+' seconds**. Avoid turbulence.\n\n'+
+    '**9. Mold Coating** — Apply graphite/zircon wash. Dry before closing.\n\n'+
+    '**10. Venting** — Vent holes (dia 3-5mm) at highest points, 30-50mm apart.\n\n'+
+    '**11. Metal Treatment** — '+mat.inoculant+'. Skim dross before pouring.\n\n'+
+    '**12. Mold Closing** — Align cope-drag with pins. Apply clamps/weights.\n\n'+
+    '**13. Cooling** — Directional solidification toward riser. Yield: **'+lastCalcData.yieldPct+'**.\n\n'+
+    '**14. Shakeout** — Wait for full solidification. Avoid hot shakeout → hot tear risk.\n\n'+
+    '**15. Post-Casting** — Heat treatment: '+mat.heatTreat+'. NDT inspection.\n\n'+
+    '---\n*P.L. Jain, Heine/Loper/Rosenthal, P.N. Rao*';
+}
+
+function generateFullReport(){
+  if(!lastCalcData)return 'Calculate first!';
+  const matKey=getMatKey(lastCalcData.materialName),mat=MATERIAL_KB[matKey];
+  return '## 📄 CASTING PROCESS REPORT\n*Vishvakarma Foundry AI*\n\n'+
+    '### 1. EXECUTIVE SUMMARY\nShape: **'+lastCalcData.shape+'** | Volume: **'+lastCalcData.volume+' cm³** | Mass: **'+lastCalcData.mass+' kg**\nMaterial: **'+matKey+'** | Pattern: **'+lastCalcData.pattern+'** | Yield: **'+lastCalcData.yieldPct+'**\n\n'+
+    '### 2. PATTERN DESIGN\n• Shrinkage: '+mat.shrinkage+'\n• Draft: '+mat.draft+'\n• Machining allowance: 1.5-3mm\n\n'+
+    '### 3. GATING SYSTEM\n• Ratio: '+mat.gatingRatio+'\n• Sprue: '+lastCalcData.sprue+' cm² | Runner: '+lastCalcData.runner+' cm² | Gate: '+lastCalcData.gate+' cm²\n• Pour time: '+lastCalcData.pourTime+' seconds\n\n'+
+    '### 4. RISER DESIGN\n• Riser: '+lastCalcData.riser+' cm³ | Place at thickest section\n• Modulus check: Riser M > 1.2 × Casting M\n\n'+
+    '### 5. MELTING & POURING\n• Temperature: **'+mat.pourTemp+'**\n• Treatment: '+mat.inoculant+'\n\n'+
+    '### 6. DEFECT PREVENTION\nTop risks: '+mat.risks.join(', ')+'\n\n'+
+    '### 7. POST-CASTING\n• Heat treatment: '+mat.heatTreat+'\n• Inspection: Visual + Dimensional + NDT\n\n'+
+    '---\n*Per Heine/Loper/Rosenthal & P.L. Jain*';
+}
+
+function buildGeminiPrompt(type){
+  if(!lastCalcData)return '';
+  const ctx='Shape: '+lastCalcData.shape+' | Material: '+lastCalcData.materialName+'\nVolume: '+lastCalcData.volume+' cm³ | Mass: '+lastCalcData.mass+' kg\nPattern: '+lastCalcData.pattern+' | Pour time: '+lastCalcData.pourTime+'s | Yield: '+lastCalcData.yieldPct;
+  if(type==='defects')return 'You are a senior foundry casting engineer.\n\nCASTING PARAMETERS:\n'+ctx+'\n\nProvide DETAILED DEFECT ANALYSIS with 15 casting defects. For each: name, cause, location, severity, prevention. Include references from Heine and P.L. Jain.';
+  if(type==='precautions')return 'You are a foundry engineer.\n\nCASTING PARAMETERS:\n'+ctx+'\n\nProvide a 15-POINT CASTING PRECAUTION CHECKLIST with exact numbers. Reference P.L. Jain and Heine textbooks.';
+  return 'You are a foundry engineer.\n\nCASTING PARAMETERS:\n'+ctx+'\n\nGenerate a COMPLETE CASTING REPORT: Executive Summary, Pattern Design, Gating System (with ASCII diagram), Riser Design, Defect Prediction, Melting & Pouring, Post-Casting.';
+}
+
+function copyToClipboard(text){if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).catch(()=>fallbackCopy(text));}else{fallbackCopy(text);}}
+function fallbackCopy(text){const ta=document.createElement('textarea');ta.value=text;ta.style.cssText='position:fixed;left:-9999px;opacity:0';document.body.appendChild(ta);ta.select();try{document.execCommand('copy');}catch(e){}document.body.removeChild(ta);}
+
+async function sendChatMsg(){
+  if(chatBusy)return;const input=document.getElementById('chatInput');if(!input)return;const text=input.value.trim();if(!text)return;
+  chatBusy=true;input.value='';const sb=document.getElementById('chatSendBtn');if(sb)sb.disabled=true;
+  try{addChatMsg(text,'user');setStatus('Thinking...','ember');showTyping();await aiDelay(1000,2500);hideTyping();addChatMsg(formatAI(getSmartResponse(text)),'ai');setStatus('Online','green');}
+  catch(e){hideTyping();addChatMsg('⚠ Something went wrong.','system');setStatus('Ready','green');}
+  finally{chatBusy=false;if(sb)sb.disabled=false;}
+}
+
+async function quickAsk(type){
+  if(!lastCalcData){addChatMsg('⚠ Calculate a part first before using quick actions.','system');return;}
+  if(chatBusy)return;chatBusy=true;const sb=document.getElementById('chatSendBtn');if(sb)sb.disabled=true;
+  try{addChatMsg(type.charAt(0).toUpperCase()+type.slice(1)+' analysis requested','user');setStatus('Analyzing...','ember');showTyping();await aiDelay(2000,4000);hideTyping();
+    let r='';if(type==='defects')r=generateDefectAnalysis();else if(type==='precautions')r=generatePrecautions();else if(type==='report')r=generateFullReport();
+    addChatMsg(formatAI(r),'ai');copyToClipboard(buildGeminiPrompt(type));
+    addChatMsg('📋 <strong>Gemini prompt copied!</strong> Open <a href="https://gemini.google.com/app" target="_blank" style="color:var(--cyan);">Gemini</a> and paste for deeper analysis.','system');
+    setStatus('Online','green');}
+  catch(e){hideTyping();addChatMsg('⚠ Analysis failed.','system');setStatus('Ready','green');}
+  finally{chatBusy=false;if(sb)sb.disabled=false;}
+}
+
+function openGeminiDirect(){if(!lastCalcData){alert('Calculate first!');return;}copyToClipboard(buildGeminiPrompt('report'));addChatMsg('📋 <strong>Full Gemini prompt copied!</strong> Opening Gemini...','system');setTimeout(()=>window.open('https://gemini.google.com/app','_blank'),500);}
+
+function triggerGatingDiagramChat(){
+  if(!lastCalcData){addChatMsg('⚠ Calculate first.','system');return;}
+  const shape=(lastCalcData.shape||'').toLowerCase();
+  let castingPath,castingLabel;
+  if(shape.includes('cylinder')){castingPath='<ellipse cx="190" cy="260" rx="55" ry="30" fill="none" stroke="#FFD700" stroke-width="2" stroke-dasharray="4,2"/><ellipse cx="190" cy="230" rx="55" ry="30" fill="rgba(255,215,0,0.08)" stroke="#FFD700" stroke-width="2"/><line x1="135" y1="230" x2="135" y2="260" stroke="#FFD700" stroke-width="2"/><line x1="245" y1="230" x2="245" y2="260" stroke="#FFD700" stroke-width="2"/>';castingLabel='CASTING (Cylindrical)';}
+  else if(shape.includes('sphere')){castingPath='<circle cx="190" cy="245" r="40" fill="rgba(255,215,0,0.08)" stroke="#FFD700" stroke-width="2"/>';castingLabel='CASTING (Spherical)';}
+  else if(shape.includes('cone')){castingPath='<polygon points="160,270 220,270 205,220 175,220" fill="rgba(255,215,0,0.08)" stroke="#FFD700" stroke-width="2"/>';castingLabel='CASTING (Conical)';}
+  else if(shape.includes('torus')){castingPath='<ellipse cx="190" cy="245" rx="50" ry="25" fill="none" stroke="#FFD700" stroke-width="2"/><ellipse cx="190" cy="245" rx="22" ry="10" fill="none" stroke="#FFD700" stroke-width="2"/>';castingLabel='CASTING (Torus)';}
+  else{castingPath='<rect x="145" y="220" width="90" height="55" rx="4" fill="rgba(255,215,0,0.08)" stroke="#FFD700" stroke-width="2"/>';castingLabel='CASTING (Block)';}
+  const svgHTML='<div style="background:#0b0f1e;border:1px solid rgba(255,215,0,0.2);border-radius:8px;padding:8px;margin:4px 0;">'+
+    '<svg viewBox="0 0 380 340" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:380px;">'+
+    '<text x="190" y="18" text-anchor="middle" fill="#FFD700" font-size="10" font-family="monospace" letter-spacing="3">GATING DIAGRAM</text>'+
+    '<polygon points="170,30 210,30 200,50 180,50" fill="rgba(255,140,0,0.6)" stroke="#FF8C00" stroke-width="1.5"/>'+
+    '<text x="190" y="43" text-anchor="middle" fill="#000" font-size="7" font-weight="bold" font-family="monospace">POUR</text>'+
+    '<rect x="185" y="50" width="10" height="70" fill="rgba(255,140,0,0.2)" stroke="#FF8C00" stroke-width="1.5"/>'+
+    '<text x="210" y="85" fill="#FF8C00" font-size="7" font-family="monospace">SPRUE</text>'+
+    '<text x="210" y="95" fill="#FF6B00" font-size="7" font-family="monospace">'+lastCalcData.sprue+' cm²</text>'+
+    '<rect x="80" y="130" width="220" height="9" fill="rgba(57,255,20,0.1)" stroke="#39FF14" stroke-width="1.5"/>'+
+    '<text x="80" y="127" fill="#39FF14" font-size="7" font-family="monospace">RUNNER '+lastCalcData.runner+' cm²</text>'+
+    '<line x1="40" y1="140" x2="340" y2="140" stroke="#504E6A" stroke-width="0.8" stroke-dasharray="8,4"/>'+
+    '<text x="345" y="143" fill="#504E6A" font-size="7" font-family="monospace">P/L</text>'+
+    '<rect x="130" y="139" width="8" height="82" fill="rgba(255,68,170,0.12)" stroke="#FF44AA" stroke-width="1"/>'+
+    '<rect x="242" y="139" width="8" height="82" fill="rgba(255,68,170,0.12)" stroke="#FF44AA" stroke-width="1"/>'+
+    castingPath+
+    '<text x="190" y="290" text-anchor="middle" fill="#FFD700" font-size="8" font-family="monospace">'+castingLabel+'</text>'+
+    '<text x="190" y="302" text-anchor="middle" fill="#E8A800" font-size="7" font-family="monospace">'+lastCalcData.volume+' cm³ | '+lastCalcData.mass+' kg</text>'+
+    '<rect x="176" y="188" width="28" height="34" rx="3" fill="rgba(0,212,255,0.12)" stroke="#00D4FF" stroke-width="1.5"/>'+
+    '<text x="190" y="210" text-anchor="middle" fill="#00D4FF" font-size="8" font-family="monospace">RISER</text>'+
+    '<text x="190" y="185" text-anchor="middle" fill="#00D4FF" font-size="7" font-family="monospace">'+lastCalcData.riser+' cm³</text>'+
+    '<text x="20" y="100" fill="#504E6A" font-size="8" font-family="monospace">COPE</text>'+
+    '<text x="20" y="170" fill="#504E6A" font-size="8" font-family="monospace">DRAG</text>'+
+    '</svg></div>';
+  addChatMsg(svgHTML,'ai');
+}
+
+// Hook into calculateAll to capture results
+document.addEventListener('DOMContentLoaded',function(){
+  document.addEventListener('keydown',function(e){if(e.ctrlKey&&e.key==='k'){e.preventDefault();toggleAIChat();}if(e.key==='Escape'&&chatOpen)toggleAIChat();});
+  const btn=document.getElementById('calculateBtn');
+  if(btn){btn.addEventListener('click',function(){setTimeout(function(){
+    const volEl=document.getElementById('res-volume');
+    const vol=volEl?.textContent;if(!vol||vol==='—')return;
+    const shapeSel=document.querySelector('.shape-btn.active');
+    const patternSel=document.getElementById('patternType');
+    const matSel=document.getElementById('materialType');
+    lastCalcData={shape:shapeSel?.dataset?.shape||'cube',pattern:patternSel?.value||'Single Piece',materialName:matSel?.selectedOptions?.[0]?.textContent||'Grey Cast Iron',volume:vol,mass:document.getElementById('res-mass')?.textContent||'0',sprue:document.getElementById('res-sprue')?.textContent||'0',runner:document.getElementById('res-runner')?.textContent||'0',gate:document.getElementById('res-gate')?.textContent||'0',riser:document.getElementById('res-riser')?.textContent||'0',pourTime:document.getElementById('res-pour')?.textContent||'0',yieldPct:document.getElementById('res-yield')?.textContent||'0%'};
+    ['btnDefects','btnPrecautions','btnFullReport','btnDiagram','btnGemini'].forEach(id=>{const b=document.getElementById(id);if(b){b.disabled=false;b.classList.add('ready');}});
+    const notif=document.getElementById('chatNotif');if(notif)notif.style.display='block';
+    if(chatOpen)addChatMsg('⚡ Calculated — Vol: <strong>'+vol+' cm³</strong>, Mass: <strong>'+lastCalcData.mass+' kg</strong>. Quick buttons activated!','system');
+  },4000);});}
+});
+</script>
+</body>
+</html>
